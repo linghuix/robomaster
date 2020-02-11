@@ -1,0 +1,215 @@
+#ifndef _PID_H_
+#define _PID_H_	 
+
+#define	  FLOATMAX	5000
+#define	  SHOOTFLOATMAX	14000
+#define   FEEDFLOATMAX 15000
+
+#define		PITCHAUTO_POSITION_KP_DEFAULTS  15
+#define		PITCHAUTO_POSITION_KI_DEFAULTS  0.0
+#define		PITCHAUTO_POSITION_KD_DEFAULTS	0.0
+#define		PITCHAUTO_POSITION_KPMAX	30000
+#define		PITCHAUTO_POSITION_KIMAX	30000
+#define		PITCHAUTO_POSITION_KDMAX	30000
+#define		PITCHAUTO_POSITION_OUTPUTMAX	30000
+
+#define		PITCHAUTO_SPEED_KP_DEFAULTS  100
+#define		PITCHAUTO_SPEED_KI_DEFAULTS  0.0
+#define		PITCHAUTO_SPEED_KD_DEFAULTS		0.0
+#define		PITCHAUTO_SPEED_KPMAX	20000
+#define		PITCHAUTO_SPEED_KIMAX	20000
+#define		PITCHAUTO_SPEED_KDMAX	20000
+#define		PITCHAUTO_SPEED_OUTPUTMAX	20000
+
+
+
+#define		YAWAUTO_POSITION_KP_DEFAULTS  25
+#define		YAWAUTO_POSITION_KI_DEFAULTS  0.0
+#define		YAWAUTO_POSITION_KD_DEFAULTS	0.0
+#define		YAWAUTO_POSITION_KPMAX	30000
+#define		YAWAUTO_POSITION_KIMAX	30000
+#define		YAWAUTO_POSITION_KDMAX	30000
+#define		YAWAUTO_POSITION_OUTPUTMAX	30000
+
+#define		YAWAUTO_SPEED_KP_DEFAULTS  120
+#define		YAWAUTO_SPEED_KI_DEFAULTS  0.0
+#define		YAWAUTO_SPEED_KD_DEFAULTS		0.0
+#define		YAWAUTO_SPEED_KPMAX	30000
+#define		YAWAUTO_SPEED_KIMAX	25000
+#define		YAWAUTO_SPEED_KDMAX	25000
+#define		YAWAUTO_SPEED_OUTPUTMAX	30000
+
+
+#define		PITCH_POSITION_KP_DEFAULTS  30//60
+#define		PITCH_POSITION_KI_DEFAULTS  0.0
+#define		PITCH_POSITION_KD_DEFAULTS	0
+#define		PITCH_POSITION_KPMAX	30000
+#define		PITCH_POSITION_KIMAX	30000
+#define		PITCH_POSITION_KDMAX	30000
+#define		PITCH_POSITION_OUTPUTMAX	30000
+
+#define		PITCH_SPEED_KP_DEFAULTS  50//190
+#define		PITCH_SPEED_KI_DEFAULTS  0.0
+#define		PITCH_SPEED_KD_DEFAULTS		0.0
+#define		PITCH_SPEED_KPMAX	30000
+#define		PITCH_SPEED_KIMAX	10000
+#define		PITCH_SPEED_KDMAX	30000
+#define		PITCH_SPEED_OUTPUTMAX	30000
+
+#define		YAW_POSITION_KP_DEFAULTS  50//
+#define		YAW_POSITION_KI_DEFAULTS  0.0
+#define		YAW_POSITION_KD_DEFAULTS		0.0
+#define		YAW_POSITION_KPMAX	30000
+#define		YAW_POSITION_KIMAX	30000
+#define		YAW_POSITION_KDMAX	30000
+#define		YAW_POSITION_OUTPUTMAX	30000
+
+#define		YAW_SPEED_KP_DEFAULTS  280
+#define		YAW_SPEED_KI_DEFAULTS  0.01
+#define		YAW_SPEED_KD_DEFAULTS		0.0
+#define		YAW_SPEED_KPMAX	30000
+#define		YAW_SPEED_KIMAX	10000
+#define		YAW_SPEED_KDMAX	30000
+#define		YAW_SPEED_OUTPUTMAX	30000
+
+
+#define		FRIC1_SPEED_KP_DEFAULTS  25
+#define		FRIC1_SPEED_KI_DEFAULTS  0.01
+#define		FRIC1_SPEED_KD_DEFAULTS		0
+#define		FRIC1_SPEED_KPMAX	SHOOTFLOATMAX
+#define		FRIC1_SPEED_KIMAX	SHOOTFLOATMAX
+#define		FRIC1_SPEED_KDMAX	SHOOTFLOATMAX
+#define		FRIC1_SPEED_OUTPUTMAX	15000
+
+#define		FRIC2_SPEED_KP_DEFAULTS  25
+#define		FRIC2_SPEED_KI_DEFAULTS  0.01
+#define		FRIC2_SPEED_KD_DEFAULTS		0
+#define		FRIC2_SPEED_KPMAX	SHOOTFLOATMAX
+#define		FRIC2_SPEED_KIMAX	SHOOTFLOATMAX
+#define		FRIC2_SPEED_KDMAX	SHOOTFLOATMAX
+#define		FRIC2_SPEED_OUTPUTMAX	15000
+
+#define		FRIC3_SPEED_KP_DEFAULTS  25
+#define		FRIC3_SPEED_KI_DEFAULTS  0.01
+#define		FRIC3_SPEED_KD_DEFAULTS		0
+#define		FRIC3_SPEED_KPMAX	SHOOTFLOATMAX
+#define		FRIC3_SPEED_KIMAX	SHOOTFLOATMAX
+#define		FRIC3_SPEED_KDMAX	SHOOTFLOATMAX
+#define		FRIC3_SPEED_OUTPUTMAX	15000
+
+#define		FEED_POSITION_KP_DEFAULTS  250
+#define		FEED_POSITION_KI_DEFAULTS  0.01
+#define		FEED_POSITION_KD_DEFAULTS	 0.5
+#define		FEED_POSITION_KPMAX	FEEDFLOATMAX
+#define		FEED_POSITION_KIMAX	FEEDFLOATMAX
+#define		FEED_POSITION_KDMAX	FEEDFLOATMAX
+#define		FEED_POSITION_OUTPUTMAX	15000
+
+#define		FEED_SPEED_KP_DEFAULTS  40
+#define		FEED_SPEED_KI_DEFAULTS  0.01//0.05
+#define		FEED_SPEED_KD_DEFAULTS	1
+#define		FEED_SPEED_KPMAX	FEEDFLOATMAX
+#define		FEED_SPEED_KIMAX	FEEDFLOATMAX
+#define		FEED_SPEED_KDMAX	FEEDFLOATMAX
+#define		FEED_SPEED_OUTPUTMAX	10000
+
+#define     CHASSIS_WHEEL_KP_DEFAULTS 10.0
+#define     CHASSIS_WHEEL_KI_DEFAULTS 0.0
+#define     CHASSIS_WHEEL_KD_DEFAULTS 0.0
+#define     CHASSIS_WHEEL_SPEED_KPMAX 16000
+#define     CHASSIS_WHEEL_SPEED_KIMAX 16000
+#define     CHASSIS_WHEEL_SPEED_KDMAX 16000
+#define     CHASSIS_WHEEL_SPEED_OUTPUTMAX 16000
+
+#define     CHASSIS_TWIST_KP_DEFAULTS 13.0//13.0
+#define     CHASSIS_TWIST_KI_DEFAULTS 0.0//0.2
+#define     CHASSIS_TWIST_KD_DEFAULTS 0.0
+#define     CHASSIS_TWIST_KPMAX       550
+#define     CHASSIS_TWIST_KIMAX       50
+#define     CHASSIS_TWIST_KDMAX       550
+#define     CHASSIS_TWIST_OUTPUTMAX   550
+
+#define     CHASSIS_VW_KP_DEFAULTS   18.0
+#define     CHASSIS_VW_KI_DEFAULTS   0.0
+#define     CHASSIS_VW_KD_DEFAULTS   5.0
+#define     CHASSIS_VW_KPMAX         550
+#define     CHASSIS_VW_KIMAX         250
+#define     CHASSIS_VW_KDMAX         550
+#define     CHASSIS_VW_OUTPUTMAX     550
+
+#define     CHASSIS_ADCX_KP_DEFAULTS 2.0
+#define     CHASSIS_ADCX_KI_DEFAULTS 0.0
+#define     CHASSIS_ADCX_KD_DEFAULTS 0.0
+#define     CHASSIS_ADCX_KPMAX       50
+#define     CHASSIS_ADCX_KIMAX       50
+#define     CHASSIS_ADCX_KDMAX       50
+#define     CHASSIS_ADCX_OUTPUTMAX   100
+
+#define     CHASSIS_ADCY_KP_DEFAULTS 2.0
+#define     CHASSIS_ADCY_KI_DEFAULTS 0.0
+#define     CHASSIS_ADCY_KD_DEFAULTS 0.0
+#define     CHASSIS_ADCY_KPMAX       50
+#define     CHASSIS_ADCY_KIMAX       50
+#define     CHASSIS_ADCY_KDMAX       50
+#define     CHASSIS_ADCY_OUTPUTMAX   100
+
+
+
+
+
+
+
+
+
+
+
+typedef struct
+{
+	float ref;//输入：系统待调节量的给定值
+	float fdb;//输入：系统待调节量的反馈值
+	float inte;//积分值
+	float err[2];
+	float kp;
+	float ki;
+	float kd;
+	float componentKp;
+	float componentKi;
+	float componentKd;
+	float componentKpMax;
+	float componentKiMax;
+	float componentKdMax;
+	float output;
+	float outputMax;
+} PID_Regulator_t;
+
+typedef struct
+{
+	PID_Regulator_t Position;
+	PID_Regulator_t Speed;
+} PID_Regulator_Double_Loop_t;
+
+
+
+extern PID_Regulator_Double_Loop_t PitchPID;
+extern PID_Regulator_Double_Loop_t PitchAutoPID;
+extern PID_Regulator_Double_Loop_t YawPID;
+extern PID_Regulator_Double_Loop_t YawAutoPID;
+extern PID_Regulator_Double_Loop_t ShootFeedPID;
+
+extern PID_Regulator_t ShootFric1PID;
+extern PID_Regulator_t ShootFric2PID;
+extern PID_Regulator_t ShootFric3PID;
+extern PID_Regulator_t ChassisPID[4];
+extern PID_Regulator_t ChassisVWPID;
+
+
+extern PID_Regulator_t Chassis_Twist_PID;
+
+extern PID_Regulator_t Chassis_ADCx_PID;
+extern PID_Regulator_t Chassis_ADCy_PID;
+
+void PID_Init(PID_Regulator_t *pid,float kp,float ki,float kd,float componentKpMax,float componentKiMax,float componentKdMax,float outputMax);
+void PID_Calc(PID_Regulator_t *pid);
+void PID_ALL_Init(void);
+
+#endif
