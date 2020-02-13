@@ -53,5 +53,3 @@ void Laser_Turn_OFF(void)
 {
 	HAL_GPIO_WritePin(LASER_GPIO_PORT, LASER_PIN, GPIO_PIN_RESET);
 }
-
-	

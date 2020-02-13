@@ -56,9 +56,6 @@ void RK_Control_Init(void)
 **/
 void Control_Change(void)
 {
-	if(Last_Mode.Gimbal == Gimbal_Follow_Mode &&Mode.Gimbal == Gimbal_Lock_Mode)
-		gimbal_round_now = gimbal_round;
-	
 	Last_Mode = Mode;
 
     if(Last_RK_Control == Remote_Control)
@@ -92,10 +89,12 @@ void Control_Change(void)
         case Keyboard_Control: Keyboard_Mode_Refresh();break;
         case Remote_Control  : Remote_Mode_Refresh();break;
     }
+	
 	last_rc = rc;
     Last_RK_Control = RK_Control;  
 }
 
+void control 
 
 /**
 * @brief  由遥控器的设定决定模式
@@ -302,9 +301,6 @@ void Keyboard_Mode_Refresh(void)
 		}
 	}
 				  
-
-
-	
 	
 	if(rc.mouse.r == 1)                                 //按住右键，自瞄模式，底盘的模式为随动或者摆腰
 	{

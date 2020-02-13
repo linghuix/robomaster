@@ -5,7 +5,7 @@
 #include "HW_imu.h"
 
 #define IMU_TASK_PERIOD 1        //imu任务处理周期，单位为毫秒
-#define IMU_INIT_TIME 2000.0f    //计算yaw轴offset所需的时间
+#define IMU_INIT_TIME 2000	    //计算yaw轴offset所需的时间
 
 typedef struct
 {

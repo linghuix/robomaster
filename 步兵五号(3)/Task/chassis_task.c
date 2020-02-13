@@ -147,11 +147,11 @@ void chassis_inspection_mode()
 //**********************************************************************
 void chassis_check_mode()
 {
-	chassis_set_speed(0,1.0);      //平动方向控制
+	chassis_set_speed(0,1.0);      	//平动方向控制
 	Set_Steer_Duty(STEER_ClOSE);
-	chassis_action();          //pid及can发送电流
+	chassis_action();          		//pid及can发送电流
 	//自检
-  chassis_check(chassis.current[0],chassis.current[1],chassis.current[2],chassis.current[3]);
+  	chassis_check(chassis.current[0],chassis.current[1],chassis.current[2],chassis.current[3]);
 	
 }
 

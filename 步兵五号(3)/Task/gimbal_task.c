@@ -71,13 +71,142 @@ void gimbal_lock_mode(void)
 	float pitch_feedback;
 	float yaw_target;
 	float yaw_feedback;
-	pitch_target = set_pitch_angle();  //PITCH_OFFSET_ANGLE;  //通过遥控器设置目标位置
-	pitch_feedback = GMPitchEncoder.real_angle;     //通过码盘反馈当前位置
-	//yaw_target = set_yaw_angle();                 //通过遥控器设置目标位置
+	if(Last_Mode.Gimbal == Gimbal_Follow_Mode)
+		gimbal_round_now = gimbal_round;
+	
+	pitch_target = set_pitch_angle();				//通过遥控器设置目标位置
+	pitch_feedback = GMPitchEncoder.real_angle;		//通过码盘反馈当前位置
 	current_yaw = imu_yaw;
-	yaw_target = 8191 * gimbal_round_now * 0.0439453125f; //固定在同一个位置
+	yaw_target = gimbal_round_now * 360; 			//固定在同一个位置
 	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
 	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
+}
+
+//**********************************************************************
+//* 功能： 云台自檢                                             *
+//* 参数： 无                                                          *
+//* 返回值：。
+//**********************************************************************
+#define  PITCHTIMEOUT 	100
+#define  YAWIMEOUT 		100
+uint8_t test_startTime;
+uint8_t test_endTime;
+
+int16_t  pitch_timeout_ms = PITCHTIMEOUT;//需要與零比較，所以為int類型
+int16_t  yaw_timeout_ms = YAWIMEOUT;
+uint8_t  timeout_ms = 0;
+
+uint8_t  pitch_error = 2;
+uint8_t  yaw_error = 2;
+uint8_t  test_step = 1;
+uint8_t  testFlag;
+
+
+void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep);
+void reach_testYawPosition(uint16_t pos, uint8_t next_testStep);
+float abs(float num);
+void test_passed(void);
+void warningERROR(void);
+//**********************************************************************
+//* 功能： 云台自检模式                                      		     	      *
+//* 参数： 无                                                      		      *
+//* 返回值：无                                                   		      *
+//* 说明： 实线云台全程的运动，检测控制error和控制时间是否在要求范围内                        *
+//**********************************************************************
+
+void gimbal_check_mode()
+{
+	switch(test_step)
+	{
+		case 1:
+			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MAX_ANGLE, 2);
+			break;
+		case 2:
+			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 3);
+			break;
+		case 3:
+			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 4);
+			break;
+		case 4:
+			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 1);
+			while(test_step==1){test_passed();}
+			break;
+		default:
+			break;
+	}
+}
+
+
+void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep){
+	float pitch_target, yaw_target;
+	float pitch_feedback, yaw_feedback;
+
+
+	pitch_target = pos;
+	pitch_feedback = GMPitchEncoder.real_angle;
+	yaw_target = gimbal_round_now * 360; 			//固定在同一个位置
+	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
+	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
+
+ 	if(abs(pitch_target-pitch_feedback)>pitch_error){
+		pitch_timeout_ms--;
+	}
+	else{
+		test_step = next_testStep;
+		pitch_timeout_ms = PITCHTIMEOUT;
+		yaw_timeout_ms = YAWIMEOUT;
+	}
+	
+	if(pitch_timeout_ms < 0){
+		while(1){
+			warningERROR();
+		}
+	}
+}
+
+void reach_testYawPosition(uint16_t pos, uint8_t next_testStep){
+	float pitch_target, yaw_target;
+	float pitch_feedback, yaw_feedback;
+
+
+	pitch_target = pitch_feedback;
+	pitch_feedback = GMPitchEncoder.real_angle;
+	yaw_target = pos; 			//固定在同一个位置
+	yaw_feedback = imu_yaw;	        //通过码盘反馈当前位置
+	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
+
+ 	if(abs(yaw_target - yaw_feedback)>yaw_error){
+		yaw_timeout_ms--;
+	}
+	else{
+		test_step = next_testStep;
+		pitch_timeout_ms = PITCHTIMEOUT;
+		yaw_timeout_ms = YAWIMEOUT;
+	}
+	
+	if(yaw_timeout_ms < 0){
+		while(1){
+			warningERROR();
+		}
+	}
+}
+
+float abs(float num){
+	num = num? num:-num;
+	return num;
+}
+
+void test_passed(void){
+	return;
+}
+
+void warningERROR(void){
+	return;
+}
+
+
+void testPitch(void){
+	
 }
 
 
@@ -93,8 +222,7 @@ void gimbal_follow_mode(void)
 	float pitch_feedback;
 	float yaw_target;
 	float yaw_feedback;
-	pitch_target = set_pitch_angle();               //通过遥控器设置目标位置
-//	pitch_feedback = get_pitch_encoder_angle();     //通过码盘反馈当前位置
+	pitch_target = set_pitch_angle();               				//通过遥控器设置目标位置
 	pitch_feedback = GMPitchEncoder.real_angle;
 	yaw_target = set_yaw_angle(NORMAL_K_MOUSE,NORMAL_K_CONTROLLER);	//通过遥控器设置目标位置
 	yaw_feedback = imu_yaw;                         //通过IMU四元数结算反馈当前位置

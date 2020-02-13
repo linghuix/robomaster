@@ -221,29 +221,40 @@ void imu_param_init(void)
 //* 参数：无                                                           *
 //* 返回值：无                                                         *
 //**********************************************************************
+void get_IMU_yawTemperatureOffset_in(uint16_t ms);
+void OffsetAndCalculate_IMU_yaw_angle(void);
 void imu_task()
 {
-	IMU_Get_Data();                        	                         //获取数据
-	if(imu_init_tick < IMU_INIT_TIME)                                //花2秒计算出yaw轴的温漂
-	{
-		imu_yaw_init = imu_yaw_init - imu_data.gz * 0.061037019f * 0.001f;
-		imu_init_tick++;
+	/* Gimbal_Lock_Mode yaw采用编码器反馈，
+	模式切换会重新设置yaw角度，因此不需要补偿上一个timestep到这个timestep的角度偏差 */
+	IMU_Get_Data(); 
+	get_IMU_yawTemperatureOffset_in(IMU_INIT_TIME);
+	
+	if(Last_Mode.Gimbal == Gimbal_Lock_Mode && (Mode.Gimbal == Gimbal_Follow_Mode || Mode.Gimbal == Gimbal_Auto_Mode)){
+		imu_yaw = current_yaw;									   
 	}
-	if(imu_init_tick == IMU_INIT_TIME)                               //计算出平均每毫秒的温漂
-	{
-		imu_yaw_offset = imu_yaw_init / IMU_INIT_TIME;
-		//imu_yaw_offset = 0;测试温漂抑制效果
-		imu_init_tick++;
+	else{
+		OffsetAndCalculate_IMU_yaw_angle();
 	}
-	if(Last_Mode.Gimbal == Gimbal_Lock_Mode && (Mode.Gimbal == Gimbal_Follow_Mode || Mode.Gimbal == Gimbal_Auto_Mode))
-	{
-		imu_yaw = current_yaw;                                     //模式切换积分清零
-	}
-	else
-	{
-		imu_yaw = imu_yaw - imu_data.gz * 0.061037019f * 0.001f - imu_yaw_offset;        //每次计算减去计算所得温漂
-	}
+	
+	imu_init_tick++;
 }
 
+void get_IMU_yawTemperatureOffset_in(uint16_t ms)
+{
+	if(imu_init_tick < ms) {
+		imu_yaw_init = imu_yaw_init - imu_data.gz * 0.061037019f * 0.001f;
+	}
+	else if(imu_init_tick == ms){                               		//计算出平均每毫秒的温漂
+		imu_yaw_offset = imu_yaw_init / IMU_INIT_TIME;
+	}
+	
+	//imu_yaw_offset = 0;	//测试温漂抑制效果，可以发现云台yaw，匀速缓慢的向一定的方向旋转
+}
+
+void OffsetAndCalculate_IMU_yaw_angle(void)
+{
+	imu_yaw = imu_yaw - imu_data.gz * 0.061037019f * 0.001f - imu_yaw_offset;		 //每次计算减去计算所得温漂
+}
 
 

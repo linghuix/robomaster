@@ -12,29 +12,43 @@
 
 /* Include ---------------------------------------*/
 #include "judge_task.h"
-/* Global Variable -----------------------------*/
+
+
+/* Global Variable 比赛状态和步兵状态 -----------------------------*/
 uint8_t gameprograss;					//当前比赛阶段
-uint16_t stageremaintime;			//当前阶段剩余时间
-uint8_t robotlevel;						//机器人等级
+uint16_t stageremaintime;				//当前阶段剩余时间
+
 uint8_t my_robot_id;
+uint8_t robotlevel;						//机器人等级
+uint8_t leftUpgratePoint;				//剩余性能点数
+
+/** 防御 **/
+uint8_t bloodlevel;						//血量性能等级
 uint16_t remainHP;						//机器人剩余血量
-uint16_t maxHP;								//机器人上限血量
+uint16_t maxHP;							//机器人上限血量
+uint8_t armorid;						//收到伤害的装甲片
+uint8_t hurttype;						//血量变化类型
+
+
+/** 机动 **/
+uint8_t speedlevel;
+uint16_t chassisvolt;					//底盘输出电压 mV
+uint16_t chassiscurrent;				//底盘输出电流 mA
+float chassispower;						//底盘输出功率 W
+uint16_t chassispowerbuffer;			//底盘功率缓冲 J
+
+
+/** 攻击 **/
+uint8_t powerlevel;
 uint16_t shooterheat0coolingrate;		//17mm枪口每秒冷却值
 uint16_t shooterheat0coolinglimt;		//17mm枪口每秒热量上限
 uint16_t shooterheat1coolingrate;		//42mm枪口每秒冷却值
 uint16_t shooterheat1coolinglimt;		//42mm枪口每秒热量上限
-uint16_t chassisvolt;					//底盘输出电压 mV
-uint16_t chassiscurrent;			//底盘输出电流 mA
-float chassispower;						//底盘输出功率 W
-uint16_t chassispowerbuffer;	//底盘功率缓冲 J
-uint16_t shooterheat0;				//17mm枪口热量
-uint16_t shooterheat1;				//42mm枪口热量
-uint8_t armorid;							//收到伤害的装甲片
-uint8_t hurttype;							//血量变化类型
+uint16_t shooterheat0;					//17mm枪口热量
+uint16_t shooterheat1;					//42mm枪口热量
 uint8_t	bullettype;						//子弹类型
 uint8_t	bulletfreq;						//子弹射频 Hz
-float	bulletspeed;						//子弹射速 m/s
-uint8_t Data_to_Power[3];
+float	bulletspeed;					//子弹射速 m/s
 
 
 
@@ -85,16 +99,16 @@ typedef __packed struct
 	uint8_t supply_num;							//补弹数量
 }ext_supply_projectile_booking_t;
 
-//0001**********比赛机器人状态: 0x0201		10Hz
+//0001**********比赛机器人状态: 0x0201		   10Hz
 typedef __packed struct
 {
 	uint8_t robot_id;								//机器人ID
-	uint8_t robot_level;						//机器人等级
-	uint16_t remain_HP;							//机器人剩余血量
+	uint8_t robot_level;							//机器人等级
+	uint16_t remain_HP;								//机器人剩余血量
 	uint16_t max_HP;								//机器人上限血量
-	uint16_t shooter_heat0_cooling_rate;		//机器人17mm枪口每秒冷却值
+	uint16_t shooter_heat0_cooling_rate;			//机器人17mm枪口每秒冷却值
 	uint16_t shooter_heat0_cooling_limit;		//机器人17mm枪口热量上限
-	uint16_t shooter_heat1_cooling_rate;    //机器人42mm枪口每秒冷却值
+	uint16_t shooter_heat1_cooling_rate;    	//机器人42mm枪口每秒冷却值
 	uint16_t shooter_heat1_cooling_limit;		//机器人42mm枪口热量上限
 	uint8_t mains_power_gimbal_output : 1;	//gimbal输出 1为24V 0为无
 	uint8_t mains_power_chassis_output : 1;	//chassis输出 1为24V 0为无
@@ -106,8 +120,8 @@ typedef __packed struct
 {
 	uint16_t chassis_volt;					//底盘输出电压  mV
 	uint16_t chassis_current;				//底盘输出电流  mA
-	float chassis_power;						//底盘输出功率  W
-	uint16_t chassis_power_buffer;	//底盘功率缓冲	J
+	float chassis_power;					//底盘输出功率  W
+	uint16_t chassis_power_buffer;			//底盘功率缓冲	J
 	uint16_t shooter_heat0;					//17mm  枪口热量
 	uint16_t shooter_heat1;					//42mm  枪口热量
 }ext_power_heat_data_t;
@@ -463,8 +477,6 @@ typedef __packed struct { //0015 Frame15 客户端自定义数据包
 } Frame15;
 
 
-
-
 //Part: Student_interface
 uint8_t USART_STU_BUF[200];     //学生接口接收缓冲,最大200个字节.
 uint16_t USART_STU_STA=0;       //学生接口接收状态标记		
@@ -473,7 +485,7 @@ uint8_t USART_LEN = 0;
 uint8_t recLength = 0;
 
 static U8 TxBuf1[256];
-volatile uint8_t TxCounter1=0,count1=0;
+volatile uint8_t TxCounter1=0,Txcursor1=0;
 static uint32_t isrflags;
 static uint32_t cr1its;
 
@@ -565,10 +577,7 @@ void Student_DATA_process() {
 					USART_FRAME[0] = 0;
 		}
     }
-//	 Data_to_Power[0] = 0xaa;
-//	 Data_to_Power[1] = 0xbb;
-//	 Data_to_Power[2] = (chassispowerbuffer&0xff);
-//	 HAL_UART_Transmit(&huart2, Data_to_Power, 3, 1000);
+
 }
 ///////////////////////////////////////////////////////////////////
 uint8_t judge_uart_rx_buff[50];
@@ -604,6 +613,7 @@ void Student_DATA_Receive() {
 		}
 }	
 
+
 void Judge_Task_UART_IRQHandler(void) {
 	isrflags = READ_REG(judge_huart.Instance->SR);
 	cr1its = READ_REG(judge_huart.Instance->CR1);
@@ -617,7 +627,7 @@ void Judge_Task_UART_IRQHandler(void) {
 	if(((isrflags & USART_SR_TXE) != RESET) && ((cr1its & USART_CR1_TXEIE) != RESET)){
 		judge_huart.Instance->DR = (TxBuf1[TxCounter1] & (uint16_t)0x01FFU);
 		TxCounter1++;
-		if(TxCounter1 == count1){
+		if(TxCounter1 == Txcursor1){
 			__HAL_UART_DISABLE_IT(&judge_huart,UART_IT_TXE);  
 			for(i=0;i<256;i++) TxBuf1[i] = 0;
 		}
@@ -657,7 +667,7 @@ void judge_send_custom_data(float i1,float i2,float i3,uint8_t mask)
 
 	for(i=0;i<28;i++)
     {
-        TxBuf1[count1++]=*(pframe+i);
+        TxBuf1[Txcursor1++]=*(pframe+i);
     }
     __HAL_UART_ENABLE_IT(&judge_huart,UART_IT_TXE);
 }

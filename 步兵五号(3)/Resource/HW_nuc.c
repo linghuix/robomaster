@@ -23,7 +23,7 @@ extern int   IMUerro;
 extern uint8_t nuc_send_auto_flag;
 //
 float IMU_yaw;
-int IMU_yaw_Detect;
+//int IMU_yaw_Detect;
 int nuc_flag=1;
 int nuc_update_flag = 0;
 
