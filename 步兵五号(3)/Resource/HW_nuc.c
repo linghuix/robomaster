@@ -70,7 +70,7 @@ void NUC_USART_IRQHandler(void)
 	{
 		byte_data = (uint8_t)(NUC_UART_HANDLER.Instance->DR & 0x00FF);
 		//if(Mode.Shoot == Shoot_Auto_Mode)
-			NUC_Receive_Check(byte_data);
+		NUC_Receive_Check(byte_data);
 		
 	}
 	

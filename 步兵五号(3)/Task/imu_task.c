@@ -228,13 +228,17 @@ void imu_task()
 	/* Gimbal_Lock_Mode yaw采用编码器反馈，
 	模式切换会重新设置yaw角度，因此不需要补偿上一个timestep到这个timestep的角度偏差 */
 	IMU_Get_Data(); 
+	
 	get_IMU_yawTemperatureOffset_in(IMU_INIT_TIME);
 	
-	if(Last_Mode.Gimbal == Gimbal_Lock_Mode && (Mode.Gimbal == Gimbal_Follow_Mode || Mode.Gimbal == Gimbal_Auto_Mode)){
-		imu_yaw = current_yaw;									   
-	}
-	else{
-		OffsetAndCalculate_IMU_yaw_angle();
+	if(imu_init_tick == IMU_INIT_TIME){
+		if(Last_Mode.Gimbal == Gimbal_Lock_Mode 
+			&& (Mode.Gimbal == Gimbal_Follow_Mode || Mode.Gimbal == Gimbal_Auto_Mode)){
+			imu_yaw = current_yaw;									   
+		}
+		else{
+			OffsetAndCalculate_IMU_yaw_angle();
+		}
 	}
 	
 	imu_init_tick++;

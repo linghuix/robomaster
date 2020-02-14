@@ -1,5 +1,11 @@
 #include "gimbal_task.h"
 #include "HW_nuc.h"
+
+void set_pitch_follow_Encoder(float* target, float *feedback, int is_custom, float target_custom);
+void set_yaw_follow_Encoder(float* target, float *feedback, int is_custom, float target_custom);
+void set_yaw_follow_IMU(float* target, float *feedback, int is_custom, float target_custom);
+
+
 #define NORMAL_K_MOUSE        0.0030f
 #define NORMAL_K_CONTROLLER   0.18f
 #define SUPPLY_K_MOUSE        0.0015f
@@ -24,13 +30,8 @@ extern short pre_temp1,pre_temp3;
 extern short temp1,temp2,temp3;
 
 int FLAG = 0;
-int   IMUerro;
+int IMUerro;
 int V_DETECT;
-
-
-
-
-
 
 float Auto_Angle_Yaw, Auto_Angle_Pitch;       //解析出yaw和pitch的变化量,Auto_Angle_Yaw向右为正，Auto_Angle_Pitch向下为正
 float last_Auto_Angle_Yaw;
@@ -55,7 +56,8 @@ void gimbal_task(void)
 		case Gimbal_Follow_Mode: gimbal_follow_mode(); break;
 		case Gimbal_Auto_Mode:   gimbal_auto_mode();break;
 		default:                 gimbal_lock_mode(); break;
-	}		
+	}	
+	imu_yaw_last = imu.yaw;
 }
 
 //**********************************************************************
@@ -67,30 +69,22 @@ void gimbal_task(void)
 //**********************************************************************
 void gimbal_lock_mode(void)
 {
-	float pitch_target;
-	float pitch_feedback;
-	float yaw_target;
-	float yaw_feedback;
+	float pitch_target, pitch_feedback;
+	float yaw_target, yaw_feedback;
+	
 	if(Last_Mode.Gimbal == Gimbal_Follow_Mode)
 		gimbal_round_now = gimbal_round;
-	
-	pitch_target = set_pitch_angle();				//通过遥控器设置目标位置
-	pitch_feedback = GMPitchEncoder.real_angle;		//通过码盘反馈当前位置
+
+	set_pitch_follow_Encoder(&pitch_target, &pitch_feedback, 0, 0);
+	set_yaw_follow_Encoder(&yaw_target, &yaw_feedback, 1, gimbal_round_now * 360);
 	current_yaw = imu_yaw;
-	yaw_target = gimbal_round_now * 360; 			//固定在同一个位置
-	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
+
 	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
 }
 
-//**********************************************************************
-//* 功能： 云台自檢                                             *
-//* 参数： 无                                                          *
-//* 返回值：。
-//**********************************************************************
+
 #define  PITCHTIMEOUT 	100
 #define  YAWIMEOUT 		100
-uint8_t test_startTime;
-uint8_t test_endTime;
 
 int16_t  pitch_timeout_ms = PITCHTIMEOUT;//需要與零比較，所以為int類型
 int16_t  yaw_timeout_ms = YAWIMEOUT;
@@ -101,7 +95,6 @@ uint8_t  yaw_error = 2;
 uint8_t  test_step = 1;
 uint8_t  testFlag;
 
-
 void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep);
 void reach_testYawPosition(uint16_t pos, uint8_t next_testStep);
 float abs(float num);
@@ -111,7 +104,7 @@ void warningERROR(void);
 //* 功能： 云台自检模式                                      		     	      *
 //* 参数： 无                                                      		      *
 //* 返回值：无                                                   		      *
-//* 说明： 实线云台全程的运动，检测控制error和控制时间是否在要求范围内                        *
+//* 说明： 实现云台全程的运动，检测控制error和控制时间是否在要求范围内                        *
 //**********************************************************************
 
 void gimbal_check_mode()
@@ -137,77 +130,6 @@ void gimbal_check_mode()
 }
 
 
-void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep){
-	float pitch_target, yaw_target;
-	float pitch_feedback, yaw_feedback;
-
-
-	pitch_target = pos;
-	pitch_feedback = GMPitchEncoder.real_angle;
-	yaw_target = gimbal_round_now * 360; 			//固定在同一个位置
-	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
-	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
-
- 	if(abs(pitch_target-pitch_feedback)>pitch_error){
-		pitch_timeout_ms--;
-	}
-	else{
-		test_step = next_testStep;
-		pitch_timeout_ms = PITCHTIMEOUT;
-		yaw_timeout_ms = YAWIMEOUT;
-	}
-	
-	if(pitch_timeout_ms < 0){
-		while(1){
-			warningERROR();
-		}
-	}
-}
-
-void reach_testYawPosition(uint16_t pos, uint8_t next_testStep){
-	float pitch_target, yaw_target;
-	float pitch_feedback, yaw_feedback;
-
-
-	pitch_target = pitch_feedback;
-	pitch_feedback = GMPitchEncoder.real_angle;
-	yaw_target = pos; 			//固定在同一个位置
-	yaw_feedback = imu_yaw;	        //通过码盘反馈当前位置
-	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
-
- 	if(abs(yaw_target - yaw_feedback)>yaw_error){
-		yaw_timeout_ms--;
-	}
-	else{
-		test_step = next_testStep;
-		pitch_timeout_ms = PITCHTIMEOUT;
-		yaw_timeout_ms = YAWIMEOUT;
-	}
-	
-	if(yaw_timeout_ms < 0){
-		while(1){
-			warningERROR();
-		}
-	}
-}
-
-float abs(float num){
-	num = num? num:-num;
-	return num;
-}
-
-void test_passed(void){
-	return;
-}
-
-void warningERROR(void){
-	return;
-}
-
-
-void testPitch(void){
-	
-}
 
 
 //**********************************************************************
@@ -216,19 +138,19 @@ void testPitch(void){
 //* 返回值：无                                                   		      *
 //* 说明：云台pitch,yaw跟随控制指令运动，yaw的反馈为imu，pitch反馈为编码器。                         *
 //**********************************************************************
+
+
 void gimbal_follow_mode(void)
 {
-	float pitch_target;
-	float pitch_feedback;
-	float yaw_target;
-	float yaw_feedback;
-	pitch_target = set_pitch_angle();               				//通过遥控器设置目标位置
-	pitch_feedback = GMPitchEncoder.real_angle;
-	yaw_target = set_yaw_angle(NORMAL_K_MOUSE,NORMAL_K_CONTROLLER);	//通过遥控器设置目标位置
-	yaw_feedback = imu_yaw;                         //通过IMU四元数结算反馈当前位置
-//	yaw_feedback = GMYawEncoder.real_angle;
+	float pitch_target, pitch_feedback;
+	float yaw_target, yaw_feedback;
+	
+	set_pitch_follow_Encoder(&pitch_target, &pitch_feedback, 0, 0);
+	set_yaw_follow_IMU(&yaw_target, &yaw_feedback, 0, 0);
 	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
 }
+
+
 
 
 //**********************************************************************
@@ -245,79 +167,86 @@ extern float errotime;
 
 uint8_t yaw_schmidtFlag = 0;
 
+int Cal_and_check(void);
+void Cal_Auto_Angle(void);
+uint8_t schmidt(float angle, float L, float H);
 void gimbal_auto_mode()
 {
-	float pitch_target;
-	float pitch_feedback;
-	float yaw_target;
-	float yaw_feedback;
-	uint8_t follow_flag = 0;
+	float pitch_target, pitch_feedback;
+	float yaw_target, yaw_feedback;
+	uint8_t AutoMode_fail;
 
+	AutoMode_fail = Cal_and_check();
+	
+	if(AutoMode_fail == 1){
+		gimbal_follow_mode();
+	}
+	else{
+		float target_custom;
+		target_custom = set_auto_pitch_angle();
+		set_pitch_follow_Encoder( &pitch_target, &pitch_feedback, 1, target_custom);
+		target_custom = set_auto_yaw_angle();
+		set_yaw_follow_IMU(&yaw_target, &yaw_feedback, 1, target_custom);
+		gimbal_auto_action(&PitchAutoPID, pitch_target, pitch_feedback, &YawAutoPID, yaw_target, yaw_feedback);
+	}
+
+}
+
+
+int Cal_and_check(void){
+
+	uint8_t AutoMode_fail;
 	//获取nuc数据的时刻 和 目前时间 超过100时，退出auto模式
-	if(HAL_GetTick() - nuc_tick > 100)
-	{
-		//current_yaw = imu_yaw;
+	if(HAL_GetTick() - nuc_tick > 100){
+		AutoMode_fail = 1;
 		Auto_Angle_Yaw = 0;
 		Auto_Angle_Pitch = 0;
 		PITCH_AUTO_OFFSET = 0;
 		YAW_AUTO_OFFSET = 0;
-		follow_flag = 1;
 		nuc_flag=1;
-		
 	}
-	else if ( !nuc_update_flag)
-	{
+	else if ( !nuc_update_flag){
+		AutoMode_fail = 0;
 		float ___yaw = imu.yaw - imu_yaw_last;
 		Auto_Angle_Yaw = Auto_Angle_Yaw - ___yaw;
-		imu_yaw_last = imu.yaw;
 	}
-	else 
-	{
-		imu_yaw_last = imu.yaw;
-		float XZ_ratio, YZ_ratio; 
-		XZ_ratio = temp1 * 1.0f / temp3;
-		YZ_ratio = temp2 * 1.0f / temp3;
-		Auto_Angle_Yaw = atan(XZ_ratio) * 180 / PI;
-		Auto_Angle_Pitch = atan(YZ_ratio) * 180 /PI;
-		if(fabs(Auto_Angle_Yaw)>10)
-			Auto_Angle_Yaw = (Auto_Angle_Yaw/fabs(Auto_Angle_Yaw))*10;
-
-		//yaw_schmidtFlag yaw的斯密特触发器标志
-		if(yaw_schmidtFlag==0 && (fabs(Auto_Angle_Yaw)<6))
-		   yaw_schmidtFlag=1;
-	  	else if(yaw_schmidtFlag==1 && (fabs(Auto_Angle_Yaw)>=11))
-	    	 yaw_schmidtFlag=0;
-		
+	else{
+		Cal_Auto_Angle();
+		yaw_schmidtFlag = schmidt(Auto_Angle_Yaw, 6, 11);
+		if((fabs(Auto_Angle_Yaw)>=PITCH_AUTO_WINDOWS)){
+			Auto_Angle_Yaw = Auto_Angle_Yaw/(fabs(Auto_Angle_Yaw)*YAW_AUTO_WINDOWS);
+		}
 	  	if((yaw_schmidtFlag==0)||((fabs(Auto_Angle_Pitch)>=PITCH_AUTO_WINDOWS)))
-			   follow_flag = 1;
+			   AutoMode_fail = 1;
 	  	else
-			   follow_flag = 0;
-			   //fabs(Auto_Angle_Pitch) < PITCH_AUTO_WINDOWS  
-			   //fabs(Auto_Angle_Yaw) < 6 才能自动跟踪
+			   AutoMode_fail = 0;
 		
 		erro_Auto_Angle_Yaw = (Auto_Angle_Yaw - last_Auto_Angle_Yaw)*1000;
 		last_Auto_Angle_Yaw = Auto_Angle_Yaw;
 		nuc_update_flag = 0;
 	}
-	
-	
-	if(follow_flag==1)
-	{
-		gimbal_follow_mode();
-	}
-// current_yaw = imu_yaw;
-// gimbal_follow_mode();
-	else
-	{
-		pitch_target = set_auto_pitch_angle();
-		pitch_feedback = GMPitchEncoder.real_angle;
-		yaw_target = set_auto_yaw_angle();
-		yaw_feedback = imu_yaw;
-		gimbal_auto_action(&PitchAutoPID, pitch_target, pitch_feedback, &YawAutoPID, yaw_target, yaw_feedback);
-		angle_yaw=1000*Auto_Angle_Yaw;
-	}
+	return AutoMode_fail;
+}
+
+void Cal_Auto_Angle(void){
+	float XZ_ratio, YZ_ratio; 
+	XZ_ratio = temp1 * 1.0f / temp3;
+	YZ_ratio = temp2 * 1.0f / temp3;
+	Auto_Angle_Yaw = atan(XZ_ratio) * 180 / PI;
+	Auto_Angle_Pitch = atan(YZ_ratio) * 180 /PI;
 
 }
+
+
+//斯密特触发器
+uint8_t schmidt(float angle, float L, float H){
+	if(yaw_schmidtFlag==0 && (fabs(angle)<L))
+	   	yaw_schmidtFlag=1;
+	else if(yaw_schmidtFlag==1 && (fabs(angle)>=H))
+		yaw_schmidtFlag=0;
+	return yaw_schmidtFlag;
+}
+
 //**********************************************************************
 //* 功能： 通过PID控制云台                                             *
 //* 参数： PitchPID：      Pitch轴PID结构体                            *
@@ -412,9 +341,6 @@ void gimbal_auto_action(PID_Regulator_Double_Loop_t *pitch_pid, float pitch_targ
 
 
 
-
-
-
 //**********************************************************************
 //* 功能： pitch轴角度转换函数                                         *
 //* 参数： 无                                                          *
@@ -482,11 +408,9 @@ float set_yaw_angle(float k_mouse,float k_controller)
 //**********************************************************************
 float set_auto_pitch_angle()
 {
-	float temp;
-	temp=GMPitchEncoder.real_angle-Auto_Angle_Pitch+PITCH_AUTO_OFFSET;
-	temp = Pitch_Limit(temp);
-	current_pitch=temp;
-  return temp;
+	current_pitch = GMPitchEncoder.real_angle-Auto_Angle_Pitch+PITCH_AUTO_OFFSET;
+	current_pitch = Pitch_Limit(current_pitch);
+  return current_pitch;
 }
 
 //**********************************************************************
@@ -497,18 +421,14 @@ float set_auto_pitch_angle()
 float shoot_ratio = 0;
 float set_auto_yaw_angle()
 {
-	float temp;
 	my_temp_v =shoot_ratio*v;
 	V_DETECT = 1000*v;
 	
-
-	if(fabs(Auto_Angle_Yaw)>2)
-	{
+	if(fabs(Auto_Angle_Yaw)>2){
 		my_temp_v=0;
 	}
-	temp=imu_yaw-Auto_Angle_Yaw-YAW_AUTO_OFFSET-my_temp_v;
-	current_yaw=temp;
-  return temp;
+	current_yaw = imu_yaw-Auto_Angle_Yaw-YAW_AUTO_OFFSET-my_temp_v;
+  return current_yaw;
 }
 
 
@@ -548,3 +468,115 @@ float Yaw_Limit(float yaw_current)
 		yaw_current = YAW_MIN_ANGLE;
 	return yaw_current;
 }
+
+void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep){
+	float pitch_target, yaw_target;
+	float pitch_feedback, yaw_feedback;
+
+
+	pitch_target = pos;
+	pitch_feedback = GMPitchEncoder.real_angle;
+	yaw_target = gimbal_round_now * 360; 			//固定在同一个位置
+	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
+	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
+
+ 	if(abs(pitch_target-pitch_feedback)>pitch_error){
+		pitch_timeout_ms--;
+	}
+	else{
+		test_step = next_testStep;
+		pitch_timeout_ms = PITCHTIMEOUT;
+		yaw_timeout_ms = YAWIMEOUT;
+	}
+	
+	if(pitch_timeout_ms < 0){
+		while(1){
+			warningERROR();
+		}
+	}
+}
+
+void reach_testYawPosition(uint16_t pos, uint8_t next_testStep){
+	float pitch_target, yaw_target;
+	float pitch_feedback, yaw_feedback;
+
+
+	pitch_target = pitch_feedback;
+	pitch_feedback = GMPitchEncoder.real_angle;
+	yaw_target = pos; 			//固定在同一个位置
+	yaw_feedback = imu_yaw;	        //通过码盘反馈当前位置
+	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
+
+ 	if(abs(yaw_target - yaw_feedback)>yaw_error){
+		yaw_timeout_ms--;
+	}
+	else{
+		test_step = next_testStep;
+		pitch_timeout_ms = PITCHTIMEOUT;
+		yaw_timeout_ms = YAWIMEOUT;
+	}
+	
+	if(yaw_timeout_ms < 0){
+		while(1){
+			warningERROR();
+		}
+	}
+}
+
+float abs(float num){
+
+	/*num = num? num:-num;
+	return num;*/
+	return fabs(num);
+}
+
+void test_passed(void){
+	return;
+}
+
+void warningERROR(void){
+	return;
+}
+
+
+void testPitch(void){
+	
+}
+
+
+void set_pitch_follow_Encoder(float* target, float *feedback, int is_custom, float target_custom){
+	if(is_custom == 1){
+		*target = target_custom;//自定义目标位置
+	}
+	else{
+		*target = set_pitch_angle();				//通过 外部控制器 设置目标位置
+	}
+	
+	*feedback = GMPitchEncoder.real_angle;
+}
+
+
+void set_yaw_follow_Encoder(float* target, float *feedback, int is_custom, float target_custom){
+	if(is_custom == 1){
+		*target = target_custom;//自定义目标位置
+	}
+	else{
+		*target = set_yaw_angle(NORMAL_K_MOUSE, NORMAL_K_CONTROLLER);;				//通过 外部控制器 设置目标位置
+	}
+	
+	*feedback = GMYawEncoder.real_angle;
+}
+
+
+void set_yaw_follow_IMU(float* target, float *feedback, int is_custom, float target_custom){
+	if(is_custom == 1){
+		*target = target_custom;//自定义目标位置
+	}
+	else{
+		*target = set_yaw_angle(NORMAL_K_MOUSE, NORMAL_K_CONTROLLER);;				//通过 外部控制器 设置目标位置
+	}
+
+	*feedback = imu_yaw;                         	//通过IMU四元数结算反馈当前位置
+}
+
+

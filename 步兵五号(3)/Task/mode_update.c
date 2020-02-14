@@ -54,10 +54,24 @@ void RK_Control_Init(void)
 * @retval none
 * @note   该函数为源，调用Keyboard_Mode_Refresh，Remote_Mode_Refresh函数
 **/
+void RK_Update(void);
+void Mode_Update(R_or_K_Control_t RK);
 void Control_Change(void)
 {
-	Last_Mode = Mode;
+	RK_Update();
+	Mode_Update(RK_Control);
+	//自瞄ID处理
+	NUC_Send_ID_Process();
+}
 
+/**
+* @brief  根据本次timestep的控制输入信息，来更新 Controller
+* @param  none
+* @retval none
+* @note   该函数为源，调用Keyboard_Mode_Refresh，Remote_Mode_Refresh函数
+**/
+
+void RK_Update(void){
     if(Last_RK_Control == Remote_Control)
     {
         if(rc.kb.bit.Q || rc.kb.bit.E || rc.kb.bit.CTRL || rc.kb.bit.SHIFT ||rc.kb.bit.Z||rc.kb.bit.R|| rc.mouse.r || rc.mouse.l||rc.kb.bit.Z||rc.kb.bit.X||rc.kb.bit.C||rc.kb.bit.V ) 
@@ -81,20 +95,17 @@ void Control_Change(void)
             RK_Control = Keyboard_Control;
         }
     }
-
-	//自瞄ID处理
-	NUC_Send_ID_Process();
-	switch(RK_Control)
-    {
-        case Keyboard_Control: Keyboard_Mode_Refresh();break;
-        case Remote_Control  : Remote_Mode_Refresh();break;
-    }
-	
-	last_rc = rc;
-    Last_RK_Control = RK_Control;  
 }
 
-void control 
+void Mode_Update(R_or_K_Control_t RK){
+
+	switch(RK)
+	    {
+	        case Keyboard_Control: Keyboard_Mode_Refresh();break;
+	        case Remote_Control  : Remote_Mode_Refresh();break;
+	    }
+}
+
 
 /**
 * @brief  由遥控器的设定决定模式

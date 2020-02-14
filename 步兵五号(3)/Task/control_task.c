@@ -21,7 +21,6 @@
 /* Global Variable -------------------------------*/
 int CUR_YAW;
 extern float current_yaw;
-//extern int IMU_yaw_Detect;
 float Pitch_error;
 
 extern uint8_t RemainPower;
@@ -70,6 +69,7 @@ void jscope(void){
 	feed_pos_tar = ShootFeedPID.Position.ref;
 	feed_sp_now  = ShootFeedPID.Speed.fdb;
 	feed_sp_tar  = ShootFeedPID.Speed.ref;
+	
 }
 #endif
 
@@ -80,6 +80,11 @@ void jscope(void){
 * @retval none
 * @note
 **/
+
+extern Mode_t Last_Mode;					 //上次模式
+extern R_or_K_Control_t Last_RK_Control;	 //上次模式控制来源
+extern R_or_K_Control_t RK_Control;
+extern RC_Type  last_rc;
 void Control_Task(void)
 {
 	
@@ -88,17 +93,20 @@ void Control_Task(void)
 	
 	if(Startup_Success_music_index == Startup_Success_music_len)
 	{
-		
 		Control_Change();
 		imu_task();
 
 		if(imu_init_tick >= IMU_INIT_TIME)
 		{
-			//IMU_yaw_Detect = imu_yaw*1000;
 			gimbal_task();
 			shoot_task();
 			chassis_task();
 		}
+
+		//保存本timestep的状态
+		Last_RK_Control = RK_Control;  
+		last_rc = rc;
+		Last_Mode = Mode;
 	}
 
 	judge_periodSend_controller();
