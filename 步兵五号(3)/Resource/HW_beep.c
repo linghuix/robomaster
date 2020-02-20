@@ -50,6 +50,39 @@ Sound_tone_e chassis_check_music[Chassis_music_len] =
 };
 /*Do*/
 
+//xlh：警告音，
+//SingTimes - 一个warning_music周期内的鸣叫次数
+//tone - 选择的鸣叫音色
+#define warning_len 20
+uint32_t warning_music_index = 0;
+Sound_tone_e warning_music[warning_len] =
+{
+		Silent,Silent,Silent,Silent,Silent,
+		Silent,Silent,Silent,Silent,Silent,
+		Silent,Silent,Silent,Silent,Silent,
+		Silent,Silent,Silent,Silent,Silent,
+};
+
+void warning(uint8_t SingTimes, Sound_tone_e tone)
+{
+	for(int index = 0;index < SingTimes;index++){
+		warning_music[index*2] = tone;
+	}
+	
+	if(time_1ms%80 == 0){
+		if(warning_music_index < warning_len)
+		{
+			Sing(warning_music[warning_music_index]);
+		  	warning_music_index++;
+		}
+		else
+		{
+			warning_music_index=0;
+		}
+	}
+}
+
+
 /**
 * @brief  蜂鸣器pwm初始化
 * @param  none

@@ -6,21 +6,20 @@ void set_yaw_follow_Encoder(float* target, float *feedback, int is_custom, float
 void set_yaw_follow_IMU(float* target, float *feedback, int is_custom, float target_custom);
 
 
-#define NORMAL_K_MOUSE        0.0030f
+#define NORMAL_K_MOUSE        0.0030f   /*控制输入与实际控制值的控制系数K*/
 #define NORMAL_K_CONTROLLER   0.18f
-#define SUPPLY_K_MOUSE        0.0015f
-#define SUPPLY_K_CONTROLLER   0.12f
+#define SUPPLY_K_MOUSE        0.0015f   /*鼠标*/
+#define SUPPLY_K_CONTROLLER   0.12f     /*遥控器*/
 
-#define PITCH_AUTO_WINDOWS    10
+#define PITCH_AUTO_WINDOWS    10        /*限制 自动瞄准的角度变化 的窗口*/
 #define YAW_AUTO_WINDOWS       7
 
+float PITCH_AUTO_OFFSET;    /*根据弹道的补偿*/      //shoot_task.c fric_wheel_ctrl();
+float YAW_AUTO_OFFSET;                              //shoot_task.c fric_wheel_ctrl();
+float current_pitch = PITCH_OFFSET_ANGLE;           //pitch轴全局绝对位置量,由于编码器反馈的是绝对值,所以可以初始化
+float current_yaw;                                  /*yaw轴,IMU反馈的是相对的角度,所以没必要初始化*/
 
 
-float PITCH_AUTO_OFFSET;//shoot_task.c fric_wheel_ctrl();   nuc超时    gimbal_test_auto()
-float YAW_AUTO_OFFSET;  //shoot_task.c fric_wheel_ctrl();   nuc超时    gimbal_task_auto
-float current_pitch = PITCH_OFFSET_ANGLE;            //pitch轴全局绝对位置量
-//float current_yaw = YAW_OFFSET_ANGLE;                //yaw轴全局绝对位置量
-float current_yaw;
 extern float v;
 float last_v = 0;
 float my_temp_v = 0;
@@ -29,7 +28,7 @@ extern int nuc_flag, nuc_update_flag;
 extern short pre_temp1,pre_temp3;
 extern short temp1,temp2,temp3;
 
-int FLAG = 0;
+//int FLAG = 0;
 int IMUerro;
 int V_DETECT;
 
@@ -97,7 +96,7 @@ uint8_t  testFlag;
 
 void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep);
 void reach_testYawPosition(uint16_t pos, uint8_t next_testStep);
-float abs(float num);
+//float abs(float num);
 void test_passed(void);
 void warningERROR(void);
 //**********************************************************************
@@ -112,17 +111,17 @@ void gimbal_check_mode()
 	switch(test_step)
 	{
 		case 1:
-			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MAX_ANGLE, 2);
+			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MAX_ANGLE-5, 2);
 			break;
 		case 2:
-			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 3);
+			reach_testPitchPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE+5, 3);
 			break;
 		case 3:
-			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 4);
+			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE-5, 4);
 			break;
 		case 4:
-			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE, 1);
-			while(test_step==1){test_passed();}
+			reach_testYawPosition(PITCH_OFFSET_ANGLE+PITCH_MIN_ANGLE+5, 1);
+			while(test_step == 1){test_passed();}
 			break;
 		default:
 			break;
@@ -159,9 +158,9 @@ void gimbal_follow_mode(void)
 //* 返回值：无  
 //* 说明：根据从nuc获取的temp1234，自动计算yaw和pitch。当预测的yaw，pitch与当前值相差很大时自动进入follow mode
 //**********************************************************************
-float NUCstop_pitch;
+/*float NUCstop_pitch;
 float NUCstop_yaw;
-float v;
+float v;*/
 extern float IMU_yaw, pre_IMU_yaw;
 extern float errotime;
 
@@ -170,10 +169,9 @@ uint8_t yaw_schmidtFlag = 0;
 int Cal_and_check(void);
 void Cal_Auto_Angle(void);
 uint8_t schmidt(float angle, float L, float H);
+void gimbal_auto_follow(void);
 void gimbal_auto_mode()
 {
-	float pitch_target, pitch_feedback;
-	float yaw_target, yaw_feedback;
 	uint8_t AutoMode_fail;
 
 	AutoMode_fail = Cal_and_check();
@@ -182,18 +180,28 @@ void gimbal_auto_mode()
 		gimbal_follow_mode();
 	}
 	else{
-		float target_custom;
-		target_custom = set_auto_pitch_angle();
-		set_pitch_follow_Encoder( &pitch_target, &pitch_feedback, 1, target_custom);
-		target_custom = set_auto_yaw_angle();
-		set_yaw_follow_IMU(&yaw_target, &yaw_feedback, 1, target_custom);
-		gimbal_auto_action(&PitchAutoPID, pitch_target, pitch_feedback, &YawAutoPID, yaw_target, yaw_feedback);
+        gimbal_auto_follow();
 	}
 
 }
 
 
-int Cal_and_check(void){
+void gimbal_auto_follow(void){
+	float target_custom;
+	float pitch_target, pitch_feedback;
+	float yaw_target, yaw_feedback;
+	
+    target_custom = set_auto_pitch_angle();
+	set_pitch_follow_Encoder( &pitch_target, &pitch_feedback, 1, target_custom);
+	target_custom = set_auto_yaw_angle();
+	set_yaw_follow_IMU(&yaw_target, &yaw_feedback, 1, target_custom);
+	gimbal_auto_action(&PitchAutoPID, pitch_target, pitch_feedback, &YawAutoPID, yaw_target, yaw_feedback);
+
+    return;
+}
+
+int Cal_and_check(void)
+{
 
 	uint8_t AutoMode_fail;
 	//获取nuc数据的时刻 和 目前时间 超过100时，退出auto模式
@@ -259,29 +267,31 @@ uint8_t schmidt(float angle, float L, float H){
 //**********************************************************************
 void gimbal_action(PID_Regulator_Double_Loop_t *pitch_pid, float pitch_target,float pitch_feedback, PID_Regulator_Double_Loop_t *yaw_pid,float yaw_target,float yaw_feedback)
 {
+	if(HAL_GetTick() - rc_tick >= 100){
+		Set_Gimbal_Current(&hcan1, 0, 0);
+        return;
+    }
+
 	//Pitch轴位置环
 	pitch_pid->Position.ref = pitch_target;
 	pitch_pid->Position.fdb = pitch_feedback;
 	PID_Calc(&pitch_pid->Position);
 	//Pitch轴速度环
-	pitch_pid->Speed.ref = KalmanFilter2(pitch_pid->Position.output, KALMAN_Q, KALMAN_R);//增加卡尔曼滤波
-	//pitch_pid->Speed.ref = pitch_pid->Position.output;                                 //无卡尔曼滤波
-	pitch_pid->Speed.fdb = imu_data.gx * 0.061037019f;	//gx是原始值，需要乘上分辨率。(2000-(-2000))/(2^16-1)
+	pitch_pid->Speed.ref = KalmanFilter2(pitch_pid->Position.output, KALMAN_Q, KALMAN_R);
+	pitch_pid->Speed.fdb = imu_data.gx * 0.061037019f;	        //gx是原始值，需要乘上分辨率。(2000-(-2000))/(2^16-1)
 	PID_Calc(&pitch_pid->Speed);
     //YAW位置环
     yaw_pid->Position.ref = yaw_target;
 	yaw_pid->Position.fdb = yaw_feedback;
 	PID_Calc(&yaw_pid->Position);
-	//速度环
-	//yaw_pid->Speed.ref = KalmanFilter2(yaw_pid->Position.output, KALMAN_Q, KALMAN_R); //增加卡尔曼滤波，不增加也比较稳定，所以先去掉了
-	yaw_pid->Speed.ref = yaw_pid->Position.output;                                      //无卡尔曼滤波
+	//YAW速度环
+	//无卡尔曼滤波,不增加也比较稳定，所以先去掉了
+	yaw_pid->Speed.ref = yaw_pid->Position.output;      
 	yaw_pid->Speed.fdb = -imu_data.gz * 0.061037019f;
-	PID_Calc(&yaw_pid->Speed);                                                      //该PID增加过0解决方案，如果PItch存在过零，则也可以调用
-	//pitch为can1控制，yaw为can2控制
-	if(HAL_GetTick() - rc_tick >= 100)
-		Set_Gimbal_Current(&hcan1, 0,0);
-	else
-		Set_Gimbal_Current(&hcan1, (int16_t)yaw_pid->Speed.output, (int16_t)pitch_pid->Speed.output);
+	PID_Calc(&yaw_pid->Speed);
+
+	//pitch,yaw为can1控制
+	Set_Gimbal_Current(&hcan1, (int16_t)yaw_pid->Speed.output, (int16_t)pitch_pid->Speed.output);
 	
 	//测试代码
 	//Set_Gimbal_Current(&hcan1, 0, (int16_t)pitch_pid->Speed.output);                  //单独调试pitch
@@ -290,10 +300,8 @@ void gimbal_action(PID_Regulator_Double_Loop_t *pitch_pid, float pitch_target,fl
 	//Set_Gimbal_Current(&hcan2, 5000, 0);                                              //yaw电机测试
 }
 
-
-
 //**********************************************************************
-//* 功能： 通过NUC 及 PID控制云台                                             *
+//* 功能： 通过NUC 及 PID控制云台                                      *
 //* 参数： PitchPID：      Pitch轴PID结构体                            *
 //* 参数： pitch_target：  pitch轴目标角度值                           *
 //* 参数： pitch_feedback：pitch轴反馈角度值                           *
@@ -309,36 +317,32 @@ void gimbal_auto_action(PID_Regulator_Double_Loop_t *pitch_pid, float pitch_targ
 	pitch_pid->Position.fdb = pitch_feedback;
 	PID_Calc(&pitch_pid->Position);
 	//Pitch轴速度环
-	//pitch_pid->Speed.ref = KalmanFilter2(pitch_pid->Position.output, KALMAN_Q, KALMAN_R);//增加卡尔曼滤波
-    pitch_pid->Speed.ref = pitch_pid->Position.output;                                 //无卡尔曼滤波
+    pitch_pid->Speed.ref = pitch_pid->Position.output;
 	pitch_pid->Speed.fdb = imu_data.gx * 0.061037019f;
 	PID_Calc(&pitch_pid->Speed);
 
-	
     //YAW位置环
-  yaw_pid->Position.ref = yaw_target;//+v;
+    yaw_pid->Position.ref = yaw_target;//+v;
 	yaw_pid->Position.fdb = yaw_feedback;
 	PID_Calc(&yaw_pid->Position);
 	//速度环
-	//yaw_pid->Speed.ref = KalmanFilter2(yaw_pid->Position.output, KALMAN_Q, KALMAN_R); //增加卡尔曼滤波，不增加也比较稳定，所以先去掉了
 	yaw_pid->Speed.ref = yaw_pid->Position.output;//+0.2*my_temp_v;                                      //无卡尔曼滤波
 	yaw_pid->Speed.fdb = -imu_data.gz * 0.061037019f;
-	PID_Calc(&yaw_pid->Speed);                                                      //该PID增加过0解决方案，如果PItch存在过零，则也可以调用
-	//pitch为can1控制，yaw为can2控制
+	PID_Calc(&yaw_pid->Speed);                                                      
+	
+    //pitch,yaw为can1控制 ????
 	YAW_SPEED_OUTPUT = yaw_pid->Speed.output;
-  float tmp_ratio = 1;
-	if ( yaw_pid->Speed.output < 0 ) tmp_ratio = 1.0;
+    float tmp_ratio = 1;
+	if ( yaw_pid->Speed.output < 0 ) 
+        tmp_ratio = 1.0;
 	Set_Gimbal_Current(&hcan1,(int16_t)(tmp_ratio * yaw_pid->Speed.output), (int16_t)pitch_pid->Speed.output);
-	//Set_Gimbal_Current(&hcan1, (int16_t)yaw_pid->Speed.output, 0);
-	//Set_Gimbal_Current(&hcan1, 0, (int16_t)pitch_pid->Speed.output);
+
 //	//测试代码
 //	//Set_Gimbal_Current(&hcan1, 0, (int16_t)pitch_pid->Speed.output);                  //单独调试pitch
 //	//Set_Gimbal_Current(&hcan2, (int16_t)yaw_pid->Speed.output, 0);                    //单独调试yaw
 //	//Set_Gimbal_Current(&hcan1, 0, 1000);                                              //pitch电机测试
 //	//Set_Gimbal_Current(&hcan2, 5000, 0);                                              //yaw电机测试
 }
-
-
 
 
 //**********************************************************************
@@ -480,7 +484,7 @@ void reach_testPitchPosition(uint16_t pos, uint8_t next_testStep){
 	yaw_feedback = GMYawEncoder.real_angle;	        //通过码盘反馈当前位置
 	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
 
- 	if(abs(pitch_target-pitch_feedback)>pitch_error){
+ 	if(fabs(pitch_target-pitch_feedback)>pitch_error){
 		pitch_timeout_ms--;
 	}
 	else{
@@ -507,7 +511,7 @@ void reach_testYawPosition(uint16_t pos, uint8_t next_testStep){
 	yaw_feedback = imu_yaw;	        //通过码盘反馈当前位置
 	gimbal_action(&PitchPID, pitch_target, pitch_feedback, &YawPID, yaw_target, yaw_feedback);
 
- 	if(abs(yaw_target - yaw_feedback)>yaw_error){
+ 	if(fabs(yaw_target - yaw_feedback)>yaw_error){
 		yaw_timeout_ms--;
 	}
 	else{
@@ -523,12 +527,13 @@ void reach_testYawPosition(uint16_t pos, uint8_t next_testStep){
 	}
 }
 
-float abs(float num){
+/*float abs(float num){
 
-	/*num = num? num:-num;
-	return num;*/
+	//num = num? num:-num;
+	//return num;
 	return fabs(num);
 }
+*/
 
 void test_passed(void){
 	return;

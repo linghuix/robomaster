@@ -14,7 +14,7 @@
 #include "HW_nuc.h"
 #include "filter.h"
 extern float imu_yaw;
-
+float v;
 /* Global Variable -----------------------------*/
 uint8_t NucRxBuf[9];
 short temp1, temp2, temp3, temp4;

@@ -65,6 +65,7 @@ void PID_Calc(PID_Regulator_t *pid)
 		pid->output = -pid->outputMax;	
 }
 
+/* 电机编码器过零导致传感器位置信号突变,增加检测信号 */
 void Yaw_PID_Calc(PID_Regulator_t *pid)
 {
 	float a;

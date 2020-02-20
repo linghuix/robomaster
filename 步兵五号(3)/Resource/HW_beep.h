@@ -50,4 +50,5 @@ void Sing(Sound_tone_e tone);
 void Sing_Chassis_music(uint32_t index);
 void Sing_Startup_music(uint32_t index);
 void chassis_beep(uint8_t LFw,uint8_t RFw,uint8_t LBw,uint8_t RBw,uint8_t LFc,uint8_t RFc,uint8_t LBc,uint8_t RBc);
+void warning(uint8_t SingTimes, Sound_tone_e tone);
 #endif

@@ -50,7 +50,8 @@ int pit_sp_now, pit_sp_tar, pit_pos_now, pit_pos_tar, fric1_sp_now, fric1_sp_tar
 int feed_pos_now, feed_pos_tar, feed_sp_now,feed_sp_tar;
 int yaw_sp_now ,yaw_sp_tar ,yaw_pos_now,yaw_pos_tar;
 
-void jscope(void){
+void jscope(void)
+{
 	pit_sp_now  = PitchPID.Speed.fdb * 1000;
 	pit_sp_tar  = PitchPID.Speed.ref * 1000;
 	pit_pos_now = PitchPID.Position.fdb * 1000;
@@ -85,11 +86,26 @@ extern Mode_t Last_Mode;					 //上次模式
 extern R_or_K_Control_t Last_RK_Control;	 //上次模式控制来源
 extern R_or_K_Control_t RK_Control;
 extern RC_Type  last_rc;
+
+extern uint32_t wheel_can_rcTimes[4];/*xlh*/
+uint32_t can_rcTimes[4];
+void init_canRCTime(void){
+	for(int i=0;i<4;i++)
+		wheel_can_rcTimes[i] = 0;
+}
+
+void get_canRCTime(void){
+	for(int i=0;i<4;i++)
+		can_rcTimes[i] = wheel_can_rcTimes[i];
+}
+
+
 void Control_Task(void)
 {
-	
 	time_1ms++;
 	LoopTask_Start = HAL_GetTick();
+	
+	init_canRCTime();
 	
 	if(Startup_Success_music_index == Startup_Success_music_len)
 	{
@@ -118,8 +134,10 @@ void Control_Task(void)
 	#endif
 	
 	imu_yaw_buf_pos=(imu_yaw_buf_pos+1);
-	imu_yaw_buf[imu_yaw_buf_pos] = imu_yaw;
+	imu_yaw_buf[imu_yaw_buf_pos] = imu_yaw
 	
+	get_canRCTime();
+		
 	LoopTask_End = HAL_GetTick();
 	LoopTask_Time = LoopTask_End-LoopTask_Start;
 	

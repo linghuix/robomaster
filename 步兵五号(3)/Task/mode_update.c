@@ -72,6 +72,7 @@ void Control_Change(void)
 **/
 
 void RK_Update(void){
+
     if(Last_RK_Control == Remote_Control)
     {
         if(rc.kb.bit.Q || rc.kb.bit.E || rc.kb.bit.CTRL || rc.kb.bit.SHIFT ||rc.kb.bit.Z||rc.kb.bit.R|| rc.mouse.r || rc.mouse.l||rc.kb.bit.Z||rc.kb.bit.X||rc.kb.bit.C||rc.kb.bit.V ) 

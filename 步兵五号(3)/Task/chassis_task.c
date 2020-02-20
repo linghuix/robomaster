@@ -4,25 +4,37 @@
 #include "HW_steer.h"
 chassis_t chassis;
 
-
+//控制结果
+extern R_or_K_Control_t RK_Control;
 
 //最大调整方向速度设置
 #define VX_MAX 3000             //mm/s   正方向：up
 #define VY_MAX 3000             //mm/s   正方向：left
-#define VW_MAX 550
-//deg/s  正方向：逆时针
-#define TIME_KEYAC 2000.0f	// ms
+#define VW_MAX 550				//deg/s  正方向：逆时针
+
+
+
 #define POWER_LIMIT 80.0f		// w
 #define W_BUF 60.0f         //缓冲能量
 #define Wd    30.0f         //缓冲能量危险值
 #define W_BUF 60.0f					// j
 
+
 /* chassis twist angle (degree)*/
 #define TWIST_ANGLE    45
 /* twist period time (ms) */
 #define TWIST_PERIOD   10000.0
-/* chassis control period time (ms) */
-#define CHASSIS_PERIOD 10
+
+
+//keyboard speed set
+
+#define CHASSIS_PERIOD 10	/* chassis control period time (ms) */
+#define TIME_KEYAC 2000.0f	// ms
+
+
+//chasis speed set
+#define DegreeToRad PI / 180.0f
+
 
 #define RADIAN_COEF 57.3f
 /* the radius of wheel(mm) */
@@ -267,119 +279,54 @@ void chassis_follow_mode()
 }
 
 
+
+float lastRV_WS, RV_WS;//前后移动速度，遥控器中的右侧垂直遥杆
+float lastRH_AD, RH_AD;//左右
+float lastLH_Mouse_x, LH_Mouse_x;//旋转
+void keyboard_set_speed(float*VFront,float*VLeftRight,float*Rotate);
+void limit(float *x, float down, float up);
+
 //**********************************************************************
 //* 功能： 底盘速度设定                                             *
-//* 参数： angle:相对小车方向角，逆时针为正，理想下为0                                 *
+//* 参数： angle:相对小车方向角，逆时针为正，理想下为0     		     	       *
 //* 参数： ratio:速度比例控制，平动和旋转速度都控制                                         *
-//* 返回值：无                                                    *
+//* 返回值：无                                                  *
 //* 简介： 遥控器R设定速度，L设定旋转速度
 //*		   鼠标 - 
 //**********************************************************************
+
+/**xlh:原本鼠标与遥控器的控制是独立的，初始值和状态值都是分开记录的.
+	   控制对象发生变化时，会出现错误**/
 void chassis_set_speed(float angle,float ratio)
 {
-	float k_mouse = 6.0f;                    //鼠标灵敏度
-	float RV = 0;
-	float RH = 0;
-	float LH = 0;
-	static float ramp[3] = { 0 };
-	static float lastramp[3] = { 0 };
-	static float lastLH;
-	static float lastRV;
-	static float lastRH;
-	angle = angle * PI / 180.0f;
-	float dramp = CHASSIS_PERIOD / TIME_KEYAC;
+	//float RV = 0;
+	//float RH = 0;
+	//float LH = 0;
 
-	/** 电脑键盘操作 */
+	angle = angle * DegreeToRad;
+
 	
-	//W S A D 误操作
-	if (!rc.kb.bit.W && !rc.kb.bit.S && !rc.kb.bit.A && !rc.kb.bit.D)
-		dramp = 2;
-	//按下SHIFT
-	if (rc.kb.bit.SHIFT)
-		dramp = 2;
-
-	if (rc.kb.bit.W && !rc.kb.bit.S)     	 //按下W不按S
-		ramp[WS] += dramp;
-	else if (rc.kb.bit.S && !rc.kb.bit.W)    //按下S不按W
-		ramp[WS] -= dramp;
-	else                                     //归零操作
+	if (RK_Control == Remote_Control)  //键盘无操作，则用遥控器赋值
 	{
-		if (ramp[WS] > 0)
-		{
-			ramp[WS] -= dramp;
-			if (ramp[WS] < 0)
-			{
-				ramp[WS] = 0;
-			}
-		}
-		else if (ramp[WS] < 0)
-		{
-			ramp[WS] += dramp;
-			if (ramp[WS] > 0)
-			{
-				ramp[WS] = 0;
-			}
-		}
+		/** 控制器操作 */
+		RV_WS = 0.1*rc.RV+0.9*lastRV_WS;     	//遥控器一阶低通滤波
+		RH_AD = 0.1*rc.RH+0.9*lastRH_AD;
+		LH_Mouse_x = -(0.1*rc.LH+0.9*lastLH_Mouse_x);
+		
+		lastRV_WS = rc.RV;
+		lastRH_AD = rc.RH;
+		lastLH_Mouse_x = rc.LH;
 	}
-
-	if (rc.kb.bit.A && !rc.kb.bit.D)         //按下A不按D
-		ramp[AD] -= dramp;
-	else if (rc.kb.bit.D && !rc.kb.bit.A)    //按下D不按A
-		ramp[AD] += dramp;
-	else                                     //归零操作
-	{
-		if (ramp[AD] > 0)
-		{
-			ramp[AD] -= dramp;
-			if (ramp[AD] < 0)
-			{
-				ramp[AD] = 0;
-			}
-		}
-		else if (ramp[AD] < 0)
-		{
-			ramp[AD] += dramp;
-			if (ramp[AD] > 0)
-			{
-				ramp[AD] = 0;
-			}
-		}		
-	}
-		//范围限制
-	for (int i = 0; i < 3; i++)
-	{
-		if (ramp[i] > 1)
-			ramp[i] = 1;
-		if (ramp[i] < -1)
-			ramp[i] = -1;
-	}
-		//键盘一阶低通滤波
-	RV = 0.1*ramp[WS]+0.9*lastramp[WS];
-	RH = 0.1*ramp[AD]+0.9*lastramp[AD];
-	lastramp[WS] = ramp[WS];
-	lastramp[AD] = ramp[AD];
-	LH = -k_mouse * rc.mouse.x / VW_MAX;
-
-
-
-	/** 控制器操作 */
-	
-	if (RV == 0 && RH == 0 && LH == 0)           //键盘无操作，则用遥控器赋值
-	{
-     //遥控器一阶低通滤波
-		RV = 0.1*rc.RV+0.9*lastRV;
-		RH = 0.1*rc.RH+0.9*lastRH;
-		LH = -(0.1*rc.LH+0.9*lastLH);
-		lastRV = rc.RV;
-		lastRH = rc.RH;
-		lastLH = rc.LH;
+	else{
+		/** 电脑键盘操作 */
+		keyboard_set_speed(&RV_WS, &RH_AD, &LH_Mouse_x);
 	}
 	
 	// 沿angle方向的速度分量计算
 	last_chassis = chassis;
-	chassis.vx =  (RV * cos(angle) - RH * sin(angle))*VX_MAX*ratio;
-	chassis.vy = -(RV * sin(angle) + RH * cos(angle))*VY_MAX*ratio;
-	chassis.vw =  LH * VW_MAX * ratio;
+	chassis.vx =  (RV_WS * cos(angle) - RH_AD * sin(angle))*VX_MAX*ratio;
+	chassis.vy = -(RV_WS * sin(angle) + RH_AD * cos(angle))*VY_MAX*ratio;
+	chassis.vw =  LH_Mouse_x * VW_MAX * ratio;
 	chassis.ax = chassis.vx - last_chassis.vx;
 	chassis.ay = chassis.vy - last_chassis.vy;
 	
@@ -416,6 +363,96 @@ void chassis_set_speed(float angle,float ratio)
 //	}
 
 }
+
+/** 键盘WASD，设定速度 **/
+void keyboard_set_speed(float*VFront,float*VLeftRight,float*Rotate)
+{
+
+	//static float ramp[3] = { 0 };
+	//static float lastramp[3] = { 0 };
+	float k_mouse = 6.0f;                    //鼠标灵敏度
+	float dramp = CHASSIS_PERIOD / TIME_KEYAC;//阻尼
+
+
+	//W S A D 误操作，减速
+	if (!rc.kb.bit.W && !rc.kb.bit.S && !rc.kb.bit.A && !rc.kb.bit.D)
+		dramp = 2;
+	
+	//按下SHIFT，加速和减速
+	if (rc.kb.bit.SHIFT)
+		dramp = 2;
+
+	if (rc.kb.bit.W && !rc.kb.bit.S)     	 //按下W不按S
+		RH_AD += dramp;
+	else if (rc.kb.bit.S && !rc.kb.bit.W)    //按下S不按W
+		RH_AD -= dramp;
+	else                                     //未操作，缓慢减速
+	{
+		if (RH_AD > 0)
+		{
+			RH_AD -= dramp;
+			if (RH_AD < 0)
+			{
+				RH_AD = 0;
+			}
+		}
+		else if (RH_AD < 0)
+		{
+			RH_AD += dramp;
+			if (RH_AD > 0)
+			{
+				RH_AD = 0;
+			}
+		}
+	}
+
+	if (rc.kb.bit.A && !rc.kb.bit.D)         //按下A不按D
+		RV_WS -= dramp;
+	else if (rc.kb.bit.D && !rc.kb.bit.A)    //按下D不按A
+		RV_WS += dramp;
+	else                                     //归零操作，未操作，缓慢减速
+	{
+		if (RV_WS > 0)
+		{
+			RV_WS -= dramp;
+			if (RV_WS < 0)
+			{
+				RV_WS = 0;
+			}
+		}
+		else if (RV_WS < 0)
+		{
+			RV_WS += dramp;
+			if (RV_WS > 0)
+			{
+				RV_WS = 0;
+			}
+		}		
+	}
+	//范围限制
+	limit(&RV_WS, -1, 1);
+	limit(&RH_AD, -1, 1);
+	limit(&LH_Mouse_x, -1, 1);
+
+	//键盘一阶低通滤波
+	*VFront = 0.1*RV_WS+0.9*lastRV_WS;
+	*VLeftRight = 0.1*RH_AD+0.9*lastRH_AD;
+	*Rotate = -k_mouse * rc.mouse.x / VW_MAX;
+
+	lastRH_AD = RH_AD;
+	lastRV_WS = RV_WS;
+}
+
+
+void limit(float *x, float down, float up)
+{
+	if(*x > up)
+		*x = up;
+	if(*x < down)
+		*x = down;
+}
+
+
 //**********************************************************************
 //* 功能： 底盘速度分解                                                *
 //* 参数： vx：x方向速度                                               *
@@ -517,6 +554,8 @@ void chassis_action(void) {
 	//Set_Chassis_Current(&hcan2, 1000, current_wheel1, current_wheel2, current_wheel3);
 
 }
+
+
 //**********************************************************************
 //* 功能： 随动模式下摆动方向设置                                      *
 //* 参数： k_vw：摆动的灵敏度，及偏差乘以该数字                        *
@@ -635,4 +674,43 @@ void chassis_check(int16_t LFcurrent,int16_t RFcurrent,int16_t LBcurrent,int16_t
 	chassis_beep(wheel_problem[0],wheel_problem[1],wheel_problem[2],wheel_problem[3],wheel_can_problem[0],wheel_can_problem[1],wheel_can_problem[2],wheel_can_problem[3]);
 	
 }
+
+
+//xlh:检查底盘四个轮子是否安装在同一个圆上，检查要求：小车需要进行旋转操作
+void chassis_Mount_check(void)
+{
+	//寻找最大，最小轮子速度，四个轮子的平均速度
+	int16_t errorDeviation = 0.1;//
+	int16_t minSpeed = chassis.wheel_spd_fdb[0];
+	int16_t maxSpeed = chassis.wheel_spd_fdb[0];
+	int16_t average=0;
+	
+	for(int i = 0;i < 4;i++)
+	{
+		average += chassis.wheel_spd_fdb[i];
+		if(chassis.wheel_spd_fdb[i] < minSpeed){
+			minSpeed = chassis.wheel_spd_fdb[i];
+		}
+		else if(chassis.wheel_spd_fdb[i] > maxSpeed){
+			maxSpeed = chassis.wheel_spd_fdb[i];
+		}
+	}
+
+	//如果四个轮子不在同一个圆上，那么在进行旋转运动的时候，必然会出现较大的偏差
+	//
+	if((maxSpeed-minSpeed)>errorDeviation*maxSpeed){
+		if((maxSpeed-average)>errorDeviation*maxSpeed/2){
+			warning(1, Do1M);
+		}
+		else if((average-minSpeed)>errorDeviation*maxSpeed/2){
+			warning(2, Do1M);
+		}
+		else
+			warning(3, Do1M);
+	}
+	
+}
+
+
+
 

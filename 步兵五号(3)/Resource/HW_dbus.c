@@ -21,7 +21,7 @@
 RC_Type  rc;                                     //当前键鼠、遥控器数据
 RC_Type  last_rc;                                //上次键鼠、遥控器数据
 uint8_t  dbus_buff[DBUS_RX_MAX_BUFLEN];
-uint32_t rc_tick;
+uint32_t rc_tick;//外部控制器(鼠标键盘,遥控器,不包含nuc)控制时间
 
 void Uart_Callback_RC_Handle(RC_Type *rc, uint8_t *buff)
 {
@@ -29,7 +29,6 @@ void Uart_Callback_RC_Handle(RC_Type *rc, uint8_t *buff)
 	rc_tick = HAL_GetTick();
     if (buff[0] == 0 && buff[1] == 0 && buff[2] == 0 && buff[3] == 0 && buff[4] == 0 && buff[5] == 0)
         return;
-
     rc->ch1 = (buff[0] | buff[1] << 8) & 0x07FF;
     rc->ch1 -= 1024;
     rc->ch2 = (buff[1] >> 3 | buff[2] << 5) & 0x07FF;

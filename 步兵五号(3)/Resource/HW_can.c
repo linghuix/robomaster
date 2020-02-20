@@ -24,7 +24,9 @@ for hero robot
 //RF 右前 1
 //LB 左后 3
 //RB 右后 4
-uint32_t wheel_can_rc[4];
+uint32_t wheel_can_rc[4];	/*接收CAN的时间戳*/
+uint32_t wheel_can_rcTimes[4];/*xlh测试每次控制循环中接收的次数*/
+
 
 
 GMEncoder_t GMYawEncoder;
@@ -192,9 +194,10 @@ void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan)
 		case CHASSIS3_RxID:
 		case CHASSIS4_RxID:
 		{
-		index = hcan->pRxMsg->StdId - CHASSIS1_RxID;
-		CMEncoder[index].velocity = (hcan->pRxMsg->Data[2] << 8 | hcan->pRxMsg->Data[3]);
-				wheel_can_rc[index] = HAL_GetTick();
+			index = hcan->pRxMsg->StdId - CHASSIS1_RxID;
+			CMEncoder[index].velocity = (hcan->pRxMsg->Data[2] << 8 | hcan->pRxMsg->Data[3]);
+			wheel_can_rc[index] = HAL_GetTick();
+			wheel_can_rcTimes[index]++;
 		}
 		break;
 		case POWER_ID:
@@ -215,6 +218,7 @@ void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan)
   HAL_CAN_Receive_IT(&hcan1, CAN_FIFO0);
   HAL_CAN_Receive_IT(&hcan2, CAN_FIFO0);
 }
+
 
 /**
 * @brief  向can总线发送数据，抄官方的
