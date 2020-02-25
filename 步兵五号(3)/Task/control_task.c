@@ -134,7 +134,7 @@ void Control_Task(void)
 	#endif
 	
 	imu_yaw_buf_pos=(imu_yaw_buf_pos+1);
-	imu_yaw_buf[imu_yaw_buf_pos] = imu_yaw
+	imu_yaw_buf[imu_yaw_buf_pos] = imu_yaw;
 	
 	get_canRCTime();
 		

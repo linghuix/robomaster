@@ -68,19 +68,24 @@ extern float distance[2];
 #define ADC_datax_offset 23
 #define ADC_datay_offset 28
 
-//电容
+/*超级电容管理*/
 uint8_t power_chaisispower;
 uint8_t isErro;
 uint8_t isChange;
 uint8_t RemainPower;
-uint32_t isStop_tick = 0;
+
+/*控制时间戳*/
+uint32_t isStop_tick = 0;//isChange=1
 extern uint32_t power_tick;
 extern uint32_t judge_tick;
-uint8_t isAccelerate;
-uint8_t isBoom = 0;
-int8_t twist_direction = 1;
-float twist_speed = 0.0;
 
+/*底盘控制*/
+uint8_t isAccelerate;//加速标志
+uint8_t isBoom = 0;  //停止标志
+
+/*twist mode*/
+int8_t twist_direction = 1;//twist方向标志
+float twist_speed = 0.0;
 
 
 int current_wheel0;             //左前轮全局速度
@@ -115,8 +120,9 @@ void chassis_task(void)
 		case Chassis_Check_Mode:chassis_check_mode();break;
 		default:                 chassis_depart_mode(); break;
 	}
-//chassis_depart_mode();
-//	chassis_start_mode();
+    if(Mode.Chassis != Chassis_Twist_Mode){
+        twist_speed = 0.0;
+    }
 }
 
 
@@ -128,7 +134,7 @@ void chassis_task(void)
 //**********************************************************************
 void chassis_hand_start_mode()
 {
-	chassis_set_speed(0,1.0);      //平动方向控制
+	chassis_set_angle_MaxSpeed(0,1.0);      //平动方向控制
 	Set_Steer_Duty(STEER_OPEN);
 	chassis_action();          //pid及can发送电流
 }
@@ -141,10 +147,9 @@ void chassis_hand_start_mode()
 //**********************************************************************
 void chassis_inspection_mode()
 {
-	chassis_set_speed(0,0.3);      //平动方向控制
+	chassis_set_angle_MaxSpeed(0,0.3);      //平动方向控制
 	Set_Steer_Duty(STEER_OPEN);
 	chassis_action();          //pid及can发送电流
-	twist_speed = 0.0;
 }
 
 
@@ -159,30 +164,30 @@ void chassis_inspection_mode()
 //**********************************************************************
 void chassis_check_mode()
 {
-	chassis_set_speed(0,1.0);      	//平动方向控制
+	chassis_set_angle_MaxSpeed(0,1.0);      	//平动方向控制
 	Set_Steer_Duty(STEER_ClOSE);
 	chassis_action();          		//pid及can发送电流
-	//自检
   	chassis_check(chassis.current[0],chassis.current[1],chassis.current[2],chassis.current[3]);
-	
 }
 
 
 //**********************************************************************
-//* 功能： 底盘自动取弹模式                                            *
+//* 功能： 底盘取弹模式 固定xy方向的运动                                   *
 //* 参数： 无                                                          *
 //* 返回值：无                                                         *
-//* 说明：底盘x轴和y轴会受ADC控制，自动定位，但是W分量仍然可以使用               *
+//* 说明：底盘x轴和y轴会受ADC控制，自动定位，但是W分量仍然可以使用     
+//
+//*
 //**********************************************************************
 void chassis_start_mode()
 {
-	float kv_x = 20;
-	float kv_y = 20;
-	chassis_set_speed(0,1.0);      //平动方向控制
-	chassis.vx =0;//(kv_x * (distance[0] - ADC_datax_offset));
-	chassis.vy = 0;//(kv_y * ( distance[1] - ADC_datay_offset));
-	Set_Steer_Duty(STEER_OPEN);	//打开
-	chassis_action();          //pid及can发送电流
+	//float kv_x = 20;
+	//float kv_y = 20;
+	chassis_set_angle_MaxSpeed(0,1.0);      //平动方向控制
+	chassis.vx =0;                          //覆盖底盘速度
+	chassis.vy = 0;
+	Set_Steer_Duty(STEER_OPEN);	//打开弹舱盖
+	chassis_action();
 }
 
 
@@ -198,15 +203,15 @@ void chassis_start_mode()
 //**********************************************************************
 void chassis_twist_mode()
 {
-	chassis_set_speed(-(GMYawEncoder.real_angle),1.0);      //平动方向控制
-	Chassis_Twist_PID.fdb = GMYawEncoder.real_angle;
-    if(isAccelerate)
-	{
+	chassis_set_angle_MaxSpeed(-(GMYawEncoder.real_angle),1.0);      //平动方向控制
+	
+    Chassis_Twist_PID.fdb = GMYawEncoder.real_angle;
+    
+    if(isAccelerate){
 		Chassis_Twist_PID.ref = GMYawEncoder.real_angle+twist_direction*60;
     	twist_speed = 60.0;		
 	}
-	else
-	{
+	else{
 	  	Chassis_Twist_PID.ref = GMYawEncoder.real_angle+twist_direction*30;	
 		twist_speed = 30.0;
 	}
@@ -227,12 +232,13 @@ void chassis_twist_mode()
 //**********************************************************************
 void chassis_depart_mode()
 {
-	chassis_set_speed(0,1.0);      //平动方向控制
+	chassis_set_angle_MaxSpeed(0,1.0);      //平动方向控制
 	Set_Steer_Duty(STEER_ClOSE);
 	chassis_action();          //pid及can发送电流
 }
 
 
+float Angle_limit(float angle, uint8_t down, uint8_t up);
 //**********************************************************************
 //* 功能： 底盘跟随模式                                                *
 //* 参数： 无                                                          *
@@ -241,44 +247,40 @@ void chassis_depart_mode()
 //**********************************************************************
 void chassis_follow_mode()
 {
-	chassis_set_speed(-GMYawEncoder.real_angle,1.0);      //平动方向控制
+	chassis_set_angle_MaxSpeed(-GMYawEncoder.real_angle,1.0);      //平动方向控制
 	ChassisVWPID.ref = 0;
-	if(GMYawEncoder.real_angle>180)
-	{
-	  	ChassisVWPID.fdb = GMYawEncoder.real_angle-360;
-	}
-	else if(GMYawEncoder.real_angle<-180)
-	{
-		ChassisVWPID.fdb = GMYawEncoder.real_angle+360;
-	}
-	else
-	{
-		ChassisVWPID.fdb = GMYawEncoder.real_angle;
-	}
-	
-	PID_Calc(&ChassisVWPID);
-	
-	if(ChassisVWPID.output<50&&ChassisVWPID.output>-50)
-	{
+	ChassisVWPID.fdb = Angle_limit(GMYawEncoder.real_angle, -180, 180);
+    PID_Calc(&ChassisVWPID);
+
+	/* 注意到震荡
+     * if(ChassisVWPID.output<50 && ChassisVWPID.output>-50){
 		ChassisVWPID.output = 3*ChassisVWPID.output;
+	}*/
+	if(ChassisVWPID.output>300 || ChassisVWPID.output<-300){            //防止输出过大
+		ChassisVWPID.output = 300+ 0.50*(ChassisVWPID.output-300);
 	}
-	if(ChassisVWPID.output>300||ChassisVWPID.output<-300)
-	{
-		ChassisVWPID.output =300+ 0.50*(ChassisVWPID.output-300);
-	}
-	if(GMYawEncoder.real_angle > 30||GMYawEncoder.real_angle <-30)
-	{
+	if(GMYawEncoder.real_angle > 30 || GMYawEncoder.real_angle <-30){   //快速控制缩小差距到30度以内
 		ChassisVWPID.output = 200*ChassisVWPID.output/fabs(ChassisVWPID.output);
 	}
 	
 	chassis.vw = -ChassisVWPID.output;
-	twist_speed = 0.0;
 	Set_Steer_Duty(STEER_ClOSE);
 	chassis_action();          //pid及can发送电流
-	
 }
 
 
+float Angle_limit(float angle, uint8_t down, uint8_t up)
+{
+	if(angle > up){
+	  	return angle-360;
+	}
+	else if(angle < down){
+		return angle+360;
+	}
+	else{
+		return angle;
+	}
+}
 
 float lastRV_WS, RV_WS;//前后移动速度，遥控器中的右侧垂直遥杆
 float lastRH_AD, RH_AD;//左右
@@ -289,22 +291,21 @@ void limit(float *x, float down, float up);
 //**********************************************************************
 //* 功能： 底盘速度设定                                             *
 //* 参数： angle:相对小车方向角，逆时针为正，理想下为0     		     	       *
-//* 参数： ratio:速度比例控制，平动和旋转速度都控制                                         *
-//* 返回值：无                                                  *
+//* 参数： ratio:整体小车的速度比例控制，平动和旋转速度都控制                                         *
 //* 简介： 遥控器R设定速度，L设定旋转速度
-//*		   鼠标 - 
+//*		   鼠标 - 控制旋转速度,和 旋转角度
+//         键盘ADWS控制左右上下移动
 //**********************************************************************
-
+//
 /**xlh:原本鼠标与遥控器的控制是独立的，初始值和状态值都是分开记录的.
 	   控制对象发生变化时，会出现错误**/
-void chassis_set_speed(float angle,float ratio)
+void chassis_set_angle_MaxSpeed(float angle,float ratio)
 {
 	//float RV = 0;
 	//float RH = 0;
 	//float LH = 0;
 
 	angle = angle * DegreeToRad;
-
 	
 	if (RK_Control == Remote_Control)  //键盘无操作，则用遥控器赋值
 	{
@@ -461,7 +462,7 @@ void limit(float *x, float down, float up)
 //* 参数： speed[]：分解结束后四个轮子的速度                           *
 //* 返回值：无                                                         *
 //**********************************************************************
-void mecanum_calc(float vx, float vy, float vw, int16_t speed[]) {
+void wheel_speed_calc(float vx, float vy, float vw, int16_t speed[]) {
 	static float rotate_ratio_fr;
 	static float rotate_ratio_fl;
 	static float rotate_ratio_bl;
@@ -488,22 +489,20 @@ void mecanum_calc(float vx, float vy, float vw, int16_t speed[]) {
 	wheel_rpm[BL] = (vx + vy - vw * rotate_ratio_bl) * wheel_rpm_ratio;
 	wheel_rpm[BR] = (-vx + vy - vw * rotate_ratio_br) * wheel_rpm_ratio;
 
-	memcpy(speed, wheel_rpm, 4 * sizeof(int16_t));
+	memcpy(speed, wheel_rpm, 4 * sizeof(int16_t));//返回speed
 }
-uint8_t isAccellerate[4];
-uint8_t isaaaaaa;
+
+uint16_t power_limit();
 //**********************************************************************
 //* 功能： 底盘PID双环计算以及发送can电流控制指令                                          *
 //* 参数： 无                                                          *
 //* 返回值：无                                                         *
 //**********************************************************************
 void chassis_action(void) {
-	int i;
-//	static int16_t lastwheelcurrent[4];
-//	static uint16_t all_current;
-//	static uint16_t last_all_current;
-	mecanum_calc(chassis.vx, chassis.vy, chassis.vw, chassis.wheel_spd_ref);
-	for (i = 0; i<4; i++) 
+	uint16_t chassisoutput_ratio;
+	
+	wheel_speed_calc(chassis.vx, chassis.vy, chassis.vw, chassis.wheel_spd_ref);
+	for (int i = 0; i<4; i++) 
 	{
 		chassis.wheel_spd_fdb[i] = CMEncoder[i].velocity;
 		ChassisPID[i].fdb = chassis.wheel_spd_fdb[i];
@@ -511,128 +510,66 @@ void chassis_action(void) {
 		PID_Calc(&ChassisPID[i]);
 		chassis.current[i] = ChassisPID[i].output;
 	}
-	//因为速度和电流没有明确对应，这里面只是扩大一定的倍数
-	current_wheel0 = chassis.wheel_spd_fdb[0] * 1000;
+	
+	 if((HAL_GetTick() - rc_tick >= 100)||(HAL_GetTick() -isStop_tick<=100))
+		Set_Chassis_Current(&hcan2, 0,0,0,0);
+	 else{
+	    chassisoutput_ratio = power_limit();
+		Set_Chassis_Current(&hcan2,chassisoutput_ratio*(chassis.current[0])/100,
+                chassisoutput_ratio*(chassis.current[1])/100,
+                chassisoutput_ratio*(chassis.current[2])/100,
+                chassisoutput_ratio*(chassis.current[3])/100);
+     }
+	
+    //因为速度和电流没有明确对应，这里面只是扩大一定的倍数
+	/*
+    current_wheel0 = chassis.wheel_spd_fdb[0] * 1000;
 	current_wheel1 = chassis.wheel_spd_fdb[1] * 1000;
 	current_wheel2 = chassis.wheel_spd_fdb[2] * 1000;
 	current_wheel3 = chassis.wheel_spd_fdb[3] * 1000;
-//	//死区控制
-//	for(int i=0;i<4;++i)
-//	{
-//		if((chassis.current[i]<1100)&&(chassis.current[i]>-1100))
-//		{
-//			chassis.current[i] = 0;
-//		}
-//	}
-//	if(chassisoutput_ratio == 0)
-//	{
-//		chassisoutput_ratio = 40;
-//	}
-	
-//	all_current = fabs(chassis.wheel_spd_fdb[0])+fabs(chassis.wheel_spd_fdb[1])+fabs(chassis.wheel_spd_fdb[2])+fabs(chassis.wheel_spd_fdb[3]);
-//	if((all_current - last_all_current)>2500)
-//	{
-//		isAccellerate[3]=0;
-//	}
-//	else
-//	{
-//		isAccellerate[3]=1;
-//	}
-//	isAccellerate[2] = chassispowerbuffer;
-//	isAccellerate[1] = 0xbb;
-//	isAccellerate[0] = 0xaa;
-//	isaaaaaa = isAccellerate[3];
-//	last_all_current = all_current;
-	//HAL_UART_Transmit(&huart2, isAccellerate, 4, 1000);
-	chassisoutput_ratio = 100;
-	 
-	 //power_limit();
-	 if((HAL_GetTick() - rc_tick >= 100)||(HAL_GetTick() -isStop_tick<=100))
-		Set_Chassis_Current(&hcan2, 0,0,0,0);
-	else
-		Set_Chassis_Current(&hcan2,chassisoutput_ratio*(chassis.current[0])/100,chassisoutput_ratio*(chassis.current[1])/100,chassisoutput_ratio*(chassis.current[2])/100,chassisoutput_ratio*(chassis.current[3])/100);
-	//Set_Chassis_Current(&hcan2, 1000, current_wheel1, current_wheel2, current_wheel3);
-
+    */
 }
 
 
-//**********************************************************************
-//* 功能： 随动模式下摆动方向设置                                      *
-//* 参数： k_vw：摆动的灵敏度，及偏差乘以该数字                        *
-//* 返回值：实际计算的w大小和方向                                      *
-//*说明：该函数主要用来将当前的0到360的码盘值与缺省码盘值比较，包括解决*
-//*      过0问题，从而计算w方向和大小。                                *
-//*注意：该函数是以w为正数按照正方向的逆时针旋转                       *
-//*warning：！！！！！！！！测试时把底盘离地测试！！！！切记           *
-//         调整确定正方向没问题才能放在地上测试                        *
-//**********************************************************************
-//float set_chassis_vw(float k_vw)
-//{
-//	//获取0到360码盘值
-//	float encoder_angle = GMYawEncoder.angle_raw_value * 0.0439453125f;
-//	//返回的偏差值
-//	//float erro_value = CHASSIS_FOLLOW_ENCODER_OFFSET - encoder_angle;
-//	//过零处理
-//	if (erro_value < -180)
-//		erro_value = erro_value + 360;
-//	else if (erro_value > 180)
-//		erro_value = erro_value - 360;
-//	return erro_value;
-//}
-
-
-
-
-//待测试部分
-void power_limit()
+//xlh:参考裁判系统
+uint16_t power_limit()
 {
 	uint16_t my_chassispowerbuffer;
-	uint8_t TxMessage[3];
 	float Pmax;
 	int i;
 	float current = 0;
-  isAccelerate = rc.kb.bit.SHIFT;
-	TxMessage[0] = (uint8_t)chassispowerbuffer;
-	TxMessage[1] = isAccelerate;
-	TxMessage[2] = isBoom;
-
-	CAN_Send_Msg(&hcan2, TxMessage, 0x111, 3);
-	isBoom = 0;
-	if((isErro == 0)||(HAL_GetTick()- power_tick>500))
-	{
+    
+	if((isErro == 0)||(HAL_GetTick()- power_tick>500)){
 		my_chassispowerbuffer = chassispowerbuffer;
 	}
-	else
-	{
+	else{
 		my_chassispowerbuffer = power_chaisispower;
 	}
-	if(HAL_GetTick() - judge_tick > 300)
-	{
+    
+	if(HAL_GetTick() - judge_tick > 300){
 		my_chassispowerbuffer = 0;
 	}
-	if(my_chassispowerbuffer>Wd)
-	{
+
+	if(my_chassispowerbuffer>Wd){
 		Pmax = ((my_chassispowerbuffer - Wd)/0.02);
-		if(Pmax < POWER_LIMIT)
-		{
+		if(Pmax < POWER_LIMIT){
 			Pmax = POWER_LIMIT;
 		}
 	}
-	else
-	{
+	else{
 		Pmax = POWER_LIMIT;
 	}
-	for(i = 0;i<4;i++)
-	{
+
+	for(i = 0;i<4;i++){
 		current +=fabs(20 * chassis.current[i]/16384.0f);
 	}
-	if(current*24>=Pmax)
-	{
-		for(i = 0;i<4;i++)
-		{
+
+	if(current*24>=Pmax){
+		for(i = 0;i<4;i++){
 			chassis.current[i] *=Pmax*1.0f/(24.0f*current);
 		}
 	}
+    return my_chassispowerbuffer;
 }
 
 //**********************************************************************

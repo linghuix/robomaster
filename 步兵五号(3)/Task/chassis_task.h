@@ -69,11 +69,10 @@ void chassis_follow_mode(void);
 void chassis_hand_start_mode(void);
 void chassis_check_mode(void);
 // chassis_parameter_init(void);
-void chassis_set_speed(float angle,float ratio);
+void chassis_set_angle_MaxSpeed(float angle,float ratio);
 void mecanum_calc(float vx, float vy, float vw, int16_t speed[]);
 void chassis_action(void);
 float set_chassis_vw(float k_vw);
-void power_limit(void);
 void chassis_check(int16_t LFcurrent,int16_t RFcurrent,int16_t LBcurrent,int16_t RBcurrent);
 
 #endif // !_CHASSIS_H_

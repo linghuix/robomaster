@@ -21,7 +21,7 @@
 RC_Type  rc;                                     //当前键鼠、遥控器数据
 RC_Type  last_rc;                                //上次键鼠、遥控器数据
 uint8_t  dbus_buff[DBUS_RX_MAX_BUFLEN];
-uint32_t rc_tick;//外部控制器(鼠标键盘,遥控器,不包含nuc)控制时间
+uint32_t rc_tick;                               //外部控制器(鼠标键盘,遥控器,不包含nuc)时间戳
 
 void Uart_Callback_RC_Handle(RC_Type *rc, uint8_t *buff)
 {

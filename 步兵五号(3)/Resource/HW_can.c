@@ -36,14 +36,14 @@ SHOOTEncoder_t SHOOTEncoder[4];      //步兵少一个摩擦轮
 int32_t feed_round = 0;             //拨弹轮旋转圈数
 int32_t gimbal_round = 0;
 int32_t gimbal_round_now;
-uint32_t power_tick = 0;
+uint32_t power_tick = 0;            //电源信息的时间戳
 int angle;
 uint8_t first_time_flag;
 extern uint8_t chassisoutput_ratio;
-extern uint8_t ADC_datax_raw[2];
-extern uint8_t ADC_datay_raw[2];
+//extern uint8_t ADC_datax_raw[2];
+//extern uint8_t ADC_datay_raw[2];
 
-//电容部分
+//从CAN口接收的电容数据
 extern uint8_t power_chaisispower;
 extern uint8_t isErro;
 extern uint8_t isChange;

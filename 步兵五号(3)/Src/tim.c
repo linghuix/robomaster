@@ -59,7 +59,7 @@ TIM_HandleTypeDef htim12;
 
 void MX_TIM1_Init(void)
 {
-TIM_ClockConfigTypeDef sClockSourceConfig;
+	TIM_ClockConfigTypeDef sClockSourceConfig;
   TIM_MasterConfigTypeDef sMasterConfig;
   TIM_OC_InitTypeDef sConfigOC;
 
@@ -245,6 +245,7 @@ void MX_TIM4_Init(void)
     Error_Handler();
   }
 
+	
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
   if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
   {
